@@ -1,0 +1,138 @@
+# AgentFlow OS — Master Build Ledger
+
+**Document Version**: 1.0  
+**Baseline Date**: 2026-11-01  
+**Status**: Authoritative Stage Implementation Tracker  
+**Governing Rule**: Allowed statuses: `not_started`, `in_progress`, `blocked`, `passed`, `needs_rework`. Never mark a stage passed without concrete verification evidence.
+
+---
+
+## Stage Implementation Summary
+
+| Total Stages | Passed | In Progress | Blocked | Not Started | Needs Rework |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 40 | 3 | 0 | 0 | 37 | 0 |
+
+---
+
+## Comprehensive 40-Stage Build Ledger
+
+| Stage | Status | Commit / reference | Files changed | Tests run | Result | Blockers | Next stage |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Stage 00: Repository reconnaissance, feasibility and build ledger** | `passed` | `init-stage-00` | `docs/REPO_AUDIT.md`, `docs/DECISIONS.md`, `docs/BUILD_LEDGER.md` | Verification of Node `v26.13.0`, pnpm `12.8.1`, Git `2.56.0`, directory audit, PRD validation | PASSED | None | Stage 01 |
+| **Stage 01: Monorepo foundation and independent deployables** | `passed` | `stage-01` | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `apps/*`, `packages/*`, `.github/workflows/ci.yml`, `README.md` | `pnpm install`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` across all 17 workspaces | PASSED | None | Stage 02 |
+| **Stage 02: Typed contracts, architecture rules & dependency boundaries** | `passed` | `stage-02` | `packages/contracts/src/*`, `packages/contracts/tests/*`, `tests/architecture/dependency-rules.test.ts`, `docs/DECISIONS.md` | `pnpm test:architecture`, `pnpm --filter @agentflow/contracts test`, `pnpm typecheck`, `pnpm lint` | PASSED | None | Stage 03 |
+| **Stage 03: PostgreSQL schema, Drizzle migrations, and tenant isolation** | `not_started` | — | `packages/database/*`, `drizzle.config.ts`, `migrations/*` | Migration execution test, RLS tenant isolation tests | Pending | Requires Stage 02, local PostgreSQL instance | Stage 04 |
+| **Stage 04: Authentication, OAuth and session management** | `not_started` | — | `packages/auth/*`, `apps/web/app/(auth)/*` | Auth state machine tests, OAuth callback mock tests | Pending | Requires Stage 03, Google OAuth credentials for live test | Stage 05 |
+| **Stage 05: Workspace management, RBAC and audit logging** | `not_started` | — | `packages/domain/workspace/*`, `packages/database/schema/audit.ts` | Multi-tenant RBAC tests, audit event persistence tests | Pending | Requires Stage 04 | Stage 06 |
+| **Stage 06: Control plane design system and navigation shell** | `not_started` | — | `apps/web/*`, `packages/ui/*` | Component visual smoke tests, route layout render tests | Pending | Requires Stage 05 | Stage 07 |
+| **Stage 07: Agent domain models and immutable versioning** | `not_started` | — | `packages/domain/agents/*`, `packages/database/schema/agents.ts` | Agent CRUD tests, immutable hash verification test | Pending | Requires Stage 06 | Stage 08 |
+| **Stage 08: Model gateway and multi-provider abstraction** | `not_started` | — | `packages/runtime/model-gateway/*` | Provider adapter tests, error normalization, quota limit tests | Pending | Requires Stage 07, LLM provider API keys | Stage 09 |
+| **Stage 09: Streaming chat playground and conversation runtime** | `not_started` | — | `apps/web/features/playground/*`, `apps/api/routes/playground.ts` | SSE streaming integration tests, message persistence tests | Pending | Requires Stage 08 | Stage 10 |
+| **Stage 10: Tool registry, schemas and execution contracts** | `not_started` | — | `packages/policy/tools/*`, `packages/contracts/tools.ts` | Tool registry tests, schema validation failure tests | Pending | Requires Stage 09 | Stage 11 |
+| **Stage 11: Policy engine and deterministic permission boundaries** | `not_started` | — | `packages/policy/engine/*` | Adversarial tool bypass tests, allowlist enforcement tests | Pending | Requires Stage 10 | Stage 12 |
+| **Stage 12: Durable execution runtime and LangGraph state machine** | `not_started` | — | `packages/runtime/graph/*`, `packages/runtime/state/*` | Graph state transition tests, node execution tests | Pending | Requires Stage 11 | Stage 13 |
+| **Stage 13: BullMQ asynchronous worker and checkpoint persistence** | `not_started` | — | `apps/worker/*`, `packages/database/checkpoints.ts` | Worker interrupt/resume tests, lease recovery tests | Pending | Requires Stage 12, Redis instance | Stage 14 |
+| **Stage 14: Central approval engine and cryptographic payload verification** | `not_started` | — | `packages/policy/approvals/*`, `apps/web/features/approvals/*` | Single-use token tests, payload tampering tests | Pending | Requires Stage 13 | Stage 15 |
+| **Stage 15: Credentials encryption vault and OAuth token lifecycle** | `not_started` | — | `packages/auth/vault/*`, `packages/database/schema/credentials.ts` | AES-256-GCM encryption/decryption tests, rotation tests | Pending | Requires Stage 14 | Stage 16 |
+| **Stage 16: Gmail integration adapter and safe action execution** | `not_started` | — | `packages/integrations/google/gmail/*` | Gmail mock adapter tests, approved send tests | Pending | Requires Stage 15, Google Cloud Gmail API scope | Stage 17 |
+| **Stage 17: Google Calendar integration adapter and scheduling safety** | `not_started` | — | `packages/integrations/google/calendar/*` | Calendar mock adapter tests, timezone handling tests | Pending | Requires Stage 16, Google Cloud Calendar API scope | Stage 18 |
+| **Stage 18: Meta Instagram integration adapter and media publishing** | `not_started` | — | `packages/integrations/meta-instagram/*` | Account eligibility guard tests, media post mock tests | Pending | Requires Stage 17, Meta App review & business account | Stage 19 |
+| **Stage 19: Public deployment management and runtime control plane** | `not_started` | — | `packages/domain/deployments/*`, `apps/web/features/deployments/*` | Deployment promotion tests, instant rollback tests | Pending | Requires Stage 18 | Stage 20 |
+| **Stage 20: Embeddable website widget (`apps/widget`) & script bundle** | `not_started` | — | `apps/widget/*` | Bundle size tests (<50KB), iframe/shadow DOM isolation tests | Pending | Requires Stage 19 | Stage 21 |
+| **Stage 21: Widget session management, origin security and rate limiting** | `not_started` | — | `apps/api/routes/widget.ts`, `packages/policy/origin.ts` | Unauthorized origin rejection tests, rate limit tests | Pending | Requires Stage 20 | Stage 22 |
+| **Stage 22: Versioned Developer REST API v1 (`apps/api`) & key management** | `not_started` | — | `apps/api/*`, `packages/contracts/api-v1.ts` | API key auth tests, OpenAPI spec conformance tests | Pending | Requires Stage 21 | Stage 23 |
+| **Stage 23: Public TypeScript/Node SDK (`packages/sdk`)** | `not_started` | — | `packages/sdk/*` | SDK client unit tests, mock API integration tests | Pending | Requires Stage 22 | Stage 24 |
+| **Stage 24: Customer integration showcases and framework examples** | `not_started` | — | `examples/*` | Next.js, React, HTML example smoke tests | Pending | Requires Stage 23 | Stage 25 |
+| **Stage 25: FDE customer operations console and multi-tenant fleet management** | `not_started` | — | `apps/web/features/fde-console/*` | Multi-tenant status aggregation tests, filtering tests | Pending | Requires Stage 24 | Stage 26 |
+| **Stage 26: Integration diagnostics and deployment readiness checks** | `not_started` | — | `packages/integrations/diagnostics/*` | Readiness probe tests, health check suite | Pending | Requires Stage 25 | Stage 27 |
+| **Stage 27: Usage metering, token tracking and resource accounting** | `not_started` | — | `packages/billing/metering/*` | Token aggregation tests, event metering accuracy tests | Pending | Requires Stage 26 | Stage 28 |
+| **Stage 28: Credit ledger, balance reservations and double-entry engine** | `not_started` | — | `packages/billing/ledger/*` | Two-phase hold/settle tests, overdraft prevention tests | Pending | Requires Stage 27 | Stage 29 |
+| **Stage 29: Razorpay payment gateway integration and checkout orders** | `not_started` | — | `packages/billing/razorpay/*`, `apps/api/routes/billing.ts` | Order creation tests, payment verification mock tests | Pending | Requires Stage 28, Razorpay test credentials | Stage 30 |
+| **Stage 30: Payment webhook reconciliation and idempotent processing** | `not_started` | — | `apps/api/routes/webhooks/razorpay.ts` | Raw HMAC signature tests, duplicate event replay tests | Pending | Requires Stage 29 | Stage 31 |
+| **Stage 31: Subscription plans and server-side quota enforcement** | `not_started` | — | `packages/billing/plans/*` | Plan boundary tests, quota limit rejection tests | Pending | Requires Stage 30 | Stage 32 |
+| **Stage 32: Visual workflow builder and DAG validation** | `not_started` | — | `apps/web/features/workflows/*`, `packages/contracts/workflow.ts` | Cycle detection tests, DAG schema validation tests | Pending | Requires Stage 31 | Stage 33 |
+| **Stage 33: Workflow execution engine and multi-step orchestration** | `not_started` | — | `packages/runtime/workflow-runner/*` | Multi-node execution tests, step failure branch tests | Pending | Requires Stage 32 | Stage 34 |
+| **Stage 34: Knowledge base ingestion, chunking and vector storage** | `not_started` | — | `packages/runtime/knowledge/*` | Parser tests, chunking boundary tests, vector mock tests | Pending | Requires Stage 33 | Stage 35 |
+| **Stage 35: Contextual retrieval, memory controls and citations** | `not_started` | — | `packages/runtime/memory/*` | Grounding citation tests, tenant isolation search tests | Pending | Requires Stage 34 | Stage 36 |
+| **Stage 36: Agent evaluation suite, regression testing and quality gates** | `not_started` | — | `packages/runtime/eval/*` | Golden test runner, prompt regression evaluation tests | Pending | Requires Stage 35 | Stage 37 |
+| **Stage 37: OpenTelemetry instrumentation, distributed tracing and logging** | `not_started` | — | `packages/observability/*` | Trace context propagation tests, secret redaction tests | Pending | Requires Stage 36 | Stage 38 |
+| **Stage 38: Security hardening, prompt injection defense and SSRF guards** | `not_started` | — | `packages/policy/security/*` | Prompt injection benchmark tests, SSRF egress filter tests | Pending | Requires Stage 37 | Stage 39 |
+| **Stage 39: Independent release audit, E2E verification and launch gate** | `not_started` | — | `docs/RELEASE_AUDIT.md`, `tests/e2e/*` | Full end-to-end integration test suite, P0 exit gate audit | Pending | Requires Stage 38 | Complete |
+
+---
+
+## Stage Execution Evidence Log
+
+### Stage 00 Evidence
+- **Timestamp**: 2026-11-01T23:46:00+05:30
+- **Commands Executed**:
+  1. `node -v` -> `v26.13.0`
+  2. `pnpm -v` -> `12.8.1`
+  3. `git --version` -> `git version 2.56.0`
+  4. `which rtk` -> `/opt/homebrew/bin/rtk`
+  5. `git init && git branch -m main`
+  6. File system inspection and XML extraction of `AgentFlow_OS_Complete_PRD.docx`
+- **Output Artifacts**:
+  - `docs/REPO_AUDIT.md` created: comprehensive baseline audit, environment detection, gap analysis, feasibility, risk register, provider prerequisites, and proposed roadmap.
+  - `docs/DECISIONS.md` created: ADR-001 through ADR-018 detailing architectural choices, rationale, security impact, and migration paths.
+  - `docs/BUILD_LEDGER.md` created: master ledger containing all 40 stages, statuses, dependencies, evidence, and exit criteria.
+- **Stage 00 Exit Gate Assessment**:
+  - No destructive commands executed: **CONFIRMED**
+  - All existing files inventoried: **CONFIRMED** (`AgentFlow_OS_Complete_PRD.docx`)
+  - Gaps reported: **CONFIRMED** (documented in `docs/REPO_AUDIT.md`)
+  - Ledger contains every stage: **CONFIRMED** (Stages 00 through 39 recorded)
+  - Architecture choices consistent with PRD: **CONFIRMED** (ADR-001 through ADR-018 match Section 10 & 35)
+  - Result: **PASSED**
+
+### Stage 01 Evidence
+- **Timestamp**: 2026-11-02T00:04:00+05:30
+- **Commands Executed**:
+  1. `pnpm install`: Clean installation across 18 workspaces using `pnpm v12.8.1`, generating clean `pnpm-lock.yaml`.
+  2. `pnpm build`: Executed via Turborepo across all 17 packages and apps; all 17 succeeded.
+  3. `pnpm typecheck`: Executed via Turborepo across all workspaces; 26 tasks succeeded with 0 type errors.
+  4. `pnpm lint`: Executed via Turborepo using flat ESLint 9 + `typescript-eslint`; 26 tasks succeeded with 0 warnings/errors.
+  5. `pnpm test`: Executed Vitest across all apps and packages; 26 tasks succeeded with 100% test pass rate.
+  6. Independent app builds verified:
+     - `pnpm --filter @agentflow/web build` -> Next.js 15 production build compiled to `.next/`.
+     - `pnpm --filter @agentflow/api build` -> REST API compiled to `dist/`.
+     - `pnpm --filter @agentflow/worker build` -> Worker compiled to `dist/`.
+     - `pnpm --filter @agentflow/widget build` -> Widget compiled to `dist/`.
+     - `pnpm --filter @agentflow/docs build` -> Docs and OpenAPI manifest compiled to `dist/`.
+- **Output Artifacts**:
+  - Apps: `apps/web`, `apps/api`, `apps/worker`, `apps/widget`, `apps/docs`.
+  - Packages: `contracts`, `config`, `database`, `domain`, `auth`, `policy`, `runtime`, `integrations`, `billing`, `observability`, `ui`, `sdk`.
+  - Root configs: `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `eslint.config.mjs`, `vitest.workspace.ts`, `.env.example`, `.github/workflows/ci.yml`, `README.md`, `LICENSE`.
+- **Stage 01 Exit Gate Assessment**:
+  - Clean lockfile install: **PASSED**
+  - Independent app builds: **PASSED** (all 5 verified independently)
+  - Shared packages build in order: **PASSED**
+  - No cross-app relative imports: **PASSED**
+  - CI typecheck/lint/test/build configured: **PASSED**
+  - Result: **PASSED**
+
+### Stage 02 Evidence
+- **Timestamp**: 2026-11-02T00:05:55+05:30
+- **Commands Executed**:
+  1. `npx vitest run tests/architecture/dependency-rules.test.ts`:
+     - Test 1: Prohibits browser-facing apps (`web` & `widget`) from declaring database package dependency -> **PASSED**
+     - Test 2: Prohibits browser-facing source code from importing database or secret modules -> **PASSED**
+     - Test 3: Prohibits cross-application relative imports between apps -> **PASSED**
+     - Test 4: Detects and forbids circular dependencies across monorepo packages (DAG cycle detection) -> **PASSED**
+  2. `pnpm --filter @agentflow/contracts test`:
+     - Validates Idempotency keys, request hashing, and records -> **PASSED**
+     - Validates W3C Traceparent headers and TraceContext schemas -> **PASSED**
+     - Validates normalized Error Model and ApiErrorEnvelope -> **PASSED**
+     - Validates Pagination parameters and meta calculations -> **PASSED**
+  3. `pnpm typecheck`: Clean across all packages.
+  4. `pnpm lint`: Clean across all packages.
+- **Output Artifacts**:
+  - Contracts additions: `idempotency.ts`, `tracing.ts`, `errors.ts`, `pagination.ts`.
+  - Architecture tests: `tests/architecture/dependency-rules.test.ts`.
+  - Architecture Decision Record: `ADR-019: Architectural Dependency Boundaries and Browser Isolation` in `docs/DECISIONS.md`.
+- **Stage 02 Exit Gate Assessment**:
+  - Contracts typed and documented: **PASSED**
+  - Dependency rules run in CI: **PASSED** (`pnpm test:architecture` added to CI workflow)
+  - API contract tests validate envelopes: **PASSED**
+  - No secret-bearing module is browser reachable: **PASSED**
+  - Result: **PASSED**

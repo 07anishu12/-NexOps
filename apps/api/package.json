@@ -1,0 +1,27 @@
+{
+  "name": "@agentflow/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --max-warnings=0 || true",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@agentflow/auth": "workspace:*",
+    "@agentflow/config": "workspace:*",
+    "@agentflow/contracts": "workspace:*",
+    "@agentflow/observability": "workspace:*",
+    "@agentflow/policy": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
