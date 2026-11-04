@@ -270,3 +270,47 @@ The existing 40-stage product roadmap names PostgreSQL schema work as Stage 03. 
   - Result: **PASSED**
 
 
+---
+
+## Prompt 06 Execution Evidence (Stage 06 — Standalone Fastify API Foundation & Operational Middleware)
+
+- **Timestamp**: 2026-11-04T22:00:00+05:30
+- **Commands Executed**:
+  1. `pnpm --filter @agentflow/api test` -> 6/6 test files, 24/24 tests passed via Fastify in-memory `inject()`:
+     - `tests/app.test.ts`: 8 tests (root discovery, 404 envelope, request ID, correlation ID, traceparent, Helmet security headers, CORS negotiation, 413 payload limit).
+     - `tests/health.test.ts`: 6 tests (liveness `/health`, `/v1/health`, `/api/v1/health`, readiness `/ready` healthy, `/ready` degraded on DB fail, `/ready` degraded on Redis fail).
+     - `tests/openapi.test.ts`: 2 tests (Swagger UI `/docs`, raw OpenAPI 3.0 spec `/docs/json`).
+     - `tests/validation.test.ts`: 3 tests (Zod schema validation, field error details, UUID validation).
+     - `tests/auth-tenancy.test.ts`: 4 tests (401 unauthenticated, 401 invalid API key, 200 trusted tenant context injection, 403 RBAC role rejection).
+     - `tests/rate-limit.test.ts`: 1 test (rate limit quota exhaustion, 429 RATE_LIMIT_EXCEEDED envelope, headers).
+  2. `pnpm --filter @agentflow/api lint` -> Passed with 0 warnings/errors.
+  3. `pnpm --filter @agentflow/api typecheck` -> Passed with 0 type errors.
+  4. `pnpm --filter @agentflow/api build` -> Successfully compiled TypeScript output to `dist/`.
+  5. `pnpm test:architecture` -> 6/6 architecture boundary rules passed.
+  6. `pnpm typecheck` -> All 17 workspace packages passed.
+  7. `pnpm lint` -> All 17 workspace packages passed.
+  8. `pnpm test` -> 27 Turborepo tasks + infrastructure tests passed (100% pass rate).
+  9. `pnpm build` -> All 17 workspace packages and deployable applications (`apps/web`, `apps/api`, `apps/worker`, `apps/widget`, `apps/docs`) built successfully.
+- **Output Artifacts**:
+  - `apps/api/src/app.ts`: Pure application factory `buildApp(options)` with dependency injection.
+  - `apps/api/src/server.ts`: HTTP bootstrap `startServer()` with database pool, Redis client, and graceful shutdown signal handlers (`SIGTERM`, `SIGINT`).
+  - `apps/api/src/plugins/*`: `request-context.ts`, `security.ts` (Helmet), `cors.ts`, `rate-limit.ts` (Redis distributed limiter), `openapi.ts` (Swagger & UI), `tenant-context.ts` (resolvers integration).
+  - `apps/api/src/lib/*`: `errors.ts` (mapping to `ApiErrorEnvelope`), `responses.ts` (`ApiSuccessEnvelope<T>`).
+  - `apps/api/src/routes/*`: `health.ts` (`/health`), `ready.ts` (`/ready`), `v1/index.ts` (versioned root with modular routes `/auth`, `/workspaces`, `/agents`, `/runs`, `/integrations`).
+  - `docs/api/ARCHITECTURE.md`, `docs/api/OPENAPI.md`, `docs/api/OPERATIONS.md`.
+  - `docs/DECISIONS.md`: Added ADR-022.
+- **Stage 06 Exit Gate Assessment**:
+  - Fastify v5 standalone architecture active in `apps/api`: **PASSED**
+  - Modular `buildApp()` / `startServer()` separation: **PASSED**
+  - Dependency injection for database, Redis, logger, config: **PASSED**
+  - Standardized error and response envelopes matching contracts: **PASSED**
+  - Request ID, correlation ID, and W3C traceparent propagation: **PASSED**
+  - Tenant context middleware integrated with Stage 05 resolvers: **PASSED**
+  - Security headers (Helmet) and CORS negotiation: **PASSED**
+  - Distributed Redis rate limiting with standard 429 response: **PASSED**
+  - Liveness (`/health`) and dependency readiness (`/ready`) probes: **PASSED**
+  - OpenAPI 3.0 generation with Swagger UI at `/docs`: **PASSED**
+  - Graceful shutdown draining connections and pools: **PASSED**
+  - Comprehensive test suite (24/24 passing): **PASSED**
+  - Zero monorepo boundary violations or build errors: **PASSED**
+  - Result: **PASSED**

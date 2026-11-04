@@ -1,58 +1,112 @@
-import { createServer, IncomingMessage, ServerResponse } from 'http';
-import { createLogger } from '@agentflow/observability';
+import { Redis } from 'ioredis';
 import { loadApplicationConfig } from '@agentflow/config';
+import { createDatabaseClient, type DatabaseClient } from '@agentflow/database';
+import { createLogger, type Logger } from '@agentflow/observability';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from './app.js';
 
-const logger = createLogger('api-service');
-const config = loadApplicationConfig();
+export interface RunningServer {
+  app: FastifyInstance;
+  address: string;
+  close: () => Promise<void>;
+}
 
-export function createApiServer() {
-  const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
-    const method = req.method ?? 'GET';
+export async function startServer(
+  port = 4000,
+  host = '0.0.0.0',
+  customLogger?: Logger
+): Promise<RunningServer> {
+  const config = loadApplicationConfig();
+  const logger = customLogger ?? createLogger('api-service', config.LOG_LEVEL);
 
-    res.setHeader('Content-Type', 'application/json');
-    logger.debug(`Incoming request: ${method} ${url.pathname}`);
+  // 1. Initialize Database Client
+  let dbClient: DatabaseClient | undefined;
+  try {
+    dbClient = createDatabaseClient({ databaseUrl: config.DATABASE_URL });
+    logger.info('Database client initialized successfully');
+  } catch (err) {
+    logger.warn('Failed to initialize database client during server bootstrap', {
+      error: err instanceof Error ? err.message : String(err)
+    });
+  }
 
-    // Health probe
-    if ((url.pathname === '/health' || url.pathname === '/api/v1/health') && method === 'GET') {
-      res.statusCode = 200;
-      res.end(
-        JSON.stringify({
-          status: 'ok',
-          service: 'api',
-          version: '0.1.0',
-          environment: config.NODE_ENV,
-          timestamp: new Date().toISOString()
-        })
-      );
-      return;
-    }
+  // 2. Initialize Redis Client
+  let redisClient: Redis | undefined;
+  try {
+    redisClient = new Redis(config.REDIS_URL, {
+      maxRetriesPerRequest: 1,
+      lazyConnect: true,
+      enableOfflineQueue: false
+    });
+    await redisClient.connect().catch((err) => {
+      logger.warn('Redis connection failed during startup (rate limiter running in memory)', {
+        error: err instanceof Error ? err.message : String(err)
+      });
+    });
+  } catch (err) {
+    logger.warn('Failed to construct Redis client', {
+      error: err instanceof Error ? err.message : String(err)
+    });
+  }
 
-    // Default route
-    if (url.pathname === '/' && method === 'GET') {
-      res.statusCode = 200;
-      res.end(
-        JSON.stringify({
-          service: 'AgentFlow OS REST API',
-          version: 'v1',
-          docs: '/docs'
-        })
-      );
-      return;
-    }
-
-    // Not found
-    res.statusCode = 404;
-    res.end(
-      JSON.stringify({
-        success: false,
-        error: {
-          code: 'NOT_FOUND',
-          message: `Endpoint '${method} ${url.pathname}' not found`
-        }
-      })
-    );
+  // 3. Build Fastify Application
+  const app = await buildApp({
+    config,
+    logger,
+    dbClient,
+    redisClient
   });
 
-  return server;
+  // 4. Start HTTP Listener
+  const address = await app.listen({ port, host });
+  logger.info(`AgentFlow REST API service listening at ${address}`, {
+    port,
+    host,
+    nodeEnv: config.NODE_ENV,
+    docsUrl: `${address}/docs`
+  });
+
+  // 5. Encapsulated Close Routine
+  let isClosing = false;
+  const close = async () => {
+    if (isClosing) return;
+    isClosing = true;
+
+    logger.info('Gracefully closing AgentFlow REST API server...');
+    try {
+      await app.close();
+    } catch (err) {
+      logger.error('Error during Fastify server close', err);
+    }
+
+    if (redisClient) {
+      try {
+        await redisClient.quit();
+      } catch {
+        redisClient.disconnect();
+      }
+    }
+
+    if (dbClient) {
+      try {
+        await dbClient.pool.end();
+      } catch (err) {
+        logger.error('Error closing database pool', err);
+      }
+    }
+
+    logger.info('Graceful shutdown completed successfully');
+  };
+
+  // 6. Signal Handlers
+  const signalHandler = async (signal: string) => {
+    logger.info(`Received ${signal}, initiating shutdown`);
+    await close();
+    process.exit(0);
+  };
+
+  process.once('SIGTERM', () => void signalHandler('SIGTERM'));
+  process.once('SIGINT', () => void signalHandler('SIGINT'));
+
+  return { app, address, close };
 }

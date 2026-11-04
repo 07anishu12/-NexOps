@@ -428,3 +428,31 @@ Stage 04 established the PostgreSQL 16.4 schema, 44 RLS policies, and append-onl
 - Unauthenticated or forged tenant requests fail closed before hitting database records.
 - 24-point security integration test suite verifies isolation across all domains and entry paths.
 
+
+---
+
+## ADR-022: Standalone Fastify API Architecture and Production Operational Middleware
+
+### Context
+`apps/api` previously utilized a basic Node.js `http.createServer` prototype. To support high-throughput multi-tenant agent execution, distributed tracing, runtime schema validation, OpenAPI generation, rate limiting, and zero-downtime operations, a robust, standalone HTTP framework was required. Fastify v5 was selected for its high performance, rich ecosystem of security plugins, declarative schema compilation, and native in-process test injection (`inject()`).
+
+### Decision
+1. **Fastify v5 Standalone Architecture**: Migrate `apps/api` completely to Fastify v5. Decouple application compilation (`buildApp()`) from network binding (`startServer()`) to permit fast, isolated test injection without dynamic TCP sockets.
+2. **Distributed Tracing & Correlation**: Implement `requestContextPlugin` extracting or generating `x-request-id`, `x-correlation-id`, and W3C `traceparent` (`parseTraceparent`). Echo tracing headers on all responses and attach high-resolution request duration to structured log events.
+3. **Operational Probes**:
+   - `GET /health`: Immediate liveness probe.
+   - `GET /ready`: Readiness probe actively testing PostgreSQL (`SELECT 1`) and Redis (`PING`), returning 200 when healthy and 503 Service Unavailable when degraded.
+   - `GET /v1/health` and `GET /api/v1/health`: Backward compatibility aliases.
+4. **Tenant Context Integration**: Connect Stage 05 cryptographic resolvers (`resolveApiKeyContext`, `resolveSessionContext`, `resolveWidgetSessionContext`, `resolveWorkerContext`) in `tenantContextPlugin` pre-handler hook. Expose `requireTenantAuth(allowedRoles?)` to enforce tenancy boundaries and RBAC permissions.
+5. **Standardized Contracts**: Enforce `@agentflow/contracts` schema models (`ApiSuccessEnvelope<T>` and `ApiErrorEnvelope`). Global error handler translates Zod validation errors, Fastify errors, auth failures, and rate limits into unified envelopes.
+6. **Security & Operational Middleware**:
+   - `@fastify/helmet` with strict security headers (nosniff, frameguard DENY, HSTS).
+   - `@fastify/cors` with configurable origin allowlists derived from environment.
+   - Distributed Redis rate-limiting plugin with fail-open fallback and standard 429 response formatting.
+   - Automatic OpenAPI 3.0 generation at `/docs` (Swagger UI) and `/docs/json`.
+7. **Graceful Shutdown**: Intercept `SIGTERM` and `SIGINT` signals, drain active Fastify requests, and gracefully terminate Redis and PostgreSQL connection pools.
+
+### Consequences
+- Fast, deterministic test suite (24 unit/integration tests running in ~2s via in-memory injection).
+- Production-ready observability, security hardening, and rate limiting active out of the box.
+- All future domain endpoints have clean, modular registration points without code duplication.

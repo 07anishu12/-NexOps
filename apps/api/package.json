@@ -16,8 +16,18 @@
     "@agentflow/auth": "workspace:*",
     "@agentflow/config": "workspace:*",
     "@agentflow/contracts": "workspace:*",
+    "@agentflow/database": "workspace:*",
     "@agentflow/observability": "workspace:*",
-    "@agentflow/policy": "workspace:*"
+    "@agentflow/policy": "workspace:*",
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/rate-limit": "^10.2.2",
+    "@fastify/swagger": "^9.4.2",
+    "@fastify/swagger-ui": "^5.2.2",
+    "fastify": "^5.2.1",
+    "fastify-plugin": "^5.0.1",
+    "ioredis": "^5.4.2",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

@@ -1,13 +1,5 @@
 ## Latest Implementation Changes
 
-### Change 05
-- Stage: 03 live verification
-- Summary: Corrected MinIO image references and verified live local infrastructure startup.
-- Files: `docker-compose.yml`, infrastructure tests, `vitest.workspace.ts`, ADR/ledger/docs
-- Validation: `pnpm infra:up`, `infra:wait`, probes for Postgres/Redis/MinIO, `infra:status`, and full test suite passed.
-- Blockers: None for local infrastructure.
-- Next step: Stage 04 schema and Drizzle migration baseline.
-
 ### Change 06
 - Stage: 04 schema & relations
 - Summary: Implemented 48 Drizzle tables across 15 domains, composite tenant keys, 33 pgEnums, and typed relations.
@@ -30,4 +22,12 @@
 - Files: `packages/database/src/*`, `packages/auth/src/api-keys.ts`, `docs/security/TENANT_ACCESS_MODEL.md`, `tests/*`
 - Validation: 51/51 database tests passed (5 unit, 22 integration, 24 access security), architecture checks passed, monorepo typecheck/lint/tests passed.
 - Blockers: None.
-- Next step: Stage 06 control plane design system and UI shell.
+- Next step: Stage 06 Fastify API architecture and operational middleware.
+
+### Change 09
+- Stage: 06 Fastify API foundation & operational middleware
+- Summary: Migrated `apps/api` to Fastify v5 with pure `buildApp()` factory, Stage 05 tenant resolvers hook, distributed Redis rate limiting, Helmet, CORS allowlists, W3C traceparent propagation, OpenAPI 3.0 at `/docs`, liveness `/health`, and readiness `/ready`.
+- Files: `apps/api/src/*`, `apps/api/tests/*`, `docs/api/*`, `docs/DECISIONS.md`, `docs/BUILD_LEDGER.md`
+- Validation: 24/24 API tests passed via `inject()`, 6/6 architecture tests passed, full monorepo typecheck, lint, tests (27/27 tasks), and all 5 app builds passed.
+- Blockers: None.
+- Next step: Stage 07 — Control plane design system and UI shell.

@@ -67,7 +67,7 @@ Every application in `apps/` is independently buildable, testable, and deployabl
 | Application | Package Name | Default Port | Health Check Route | Build Output |
 | :--- | :--- | :--- | :--- | :--- |
 | **Control Plane Web** | `@agentflow/web` | `3000` | `GET /api/health` | `.next/` |
-| **REST API Service** | `@agentflow/api` | `4000` | `GET /health`, `GET /api/v1/health` | `dist/` |
+| **REST API Service** | `@agentflow/api` | `4000` | `GET /health` (liveness), `GET /ready` (readiness), `GET /docs` (OpenAPI UI) | `dist/` |
 | **Background Worker** | `@agentflow/worker` | `4001` (health) | `GET /health` | `dist/` |
 | **Website Widget** | `@agentflow/widget` | `3002` (demo) | Self-verifying bundle test | `dist/` |
 | **Documentation** | `@agentflow/docs` | `3003` | `GET /docs` | `dist/` |
