@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["DATABASE_URL", "NODE_ENV", "REDIS_URL"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -12,7 +13,8 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "NODE_ENV"]
     },
     "dev": {
       "cache": false,

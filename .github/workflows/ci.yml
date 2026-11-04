@@ -57,6 +57,8 @@ jobs:
         run: pnpm --filter @agentflow/database db:migrate
 
       - name: Run unit & integration tests
+        env:
+          DATABASE_URL: postgresql://agentflow:agentflow_password@127.0.0.1:5432/agentflow_dev
         run: pnpm test
 
       - name: Enforce architecture boundaries and dependency rules

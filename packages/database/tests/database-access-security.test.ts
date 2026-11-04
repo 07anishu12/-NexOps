@@ -38,7 +38,7 @@ function getDatabaseUrl(): string {
   } catch {
     // fallback
   }
-  return 'postgresql://agentflow:9e667e71ead1cd6152ad8e3c808d483316b5d3e94aff9c8b@localhost:5432/agentflow_dev';
+  return 'postgresql://agentflow:agentflow_password@127.0.0.1:5432/agentflow_dev';
 }
 
 function sha256(input: string): string {
