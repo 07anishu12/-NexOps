@@ -66,7 +66,7 @@ Every application in `apps/` is independently buildable, testable, and deployabl
 
 | Application | Package Name | Default Port | Health Check Route | Build Output |
 | :--- | :--- | :--- | :--- | :--- |
-| **Control Plane Web** | `@agentflow/web` | `3000` | `GET /api/health` | `.next/` |
+| **Control Plane Web** | `@agentflow/web` | `3000` | `GET /api/health`, `/login`, `/app` | `.next/` |
 | **REST API Service** | `@agentflow/api` | `4000` | `GET /health` (liveness), `GET /ready` (readiness), `GET /docs` (OpenAPI UI) | `dist/` |
 | **Background Worker** | `@agentflow/worker` | `4001` (health) | `GET /health` | `dist/` |
 | **Website Widget** | `@agentflow/widget` | `3002` (demo) | Self-verifying bundle test | `dist/` |
@@ -180,8 +180,10 @@ The widget is built as a standalone bundle with `pnpm --filter @agentflow/widget
 
 ## 7. Architecture Decisions & Implementation Ledger
 
-- **Architecture Decision Records**: Consult [`docs/DECISIONS.md`](docs/DECISIONS.md) for ADR-001 through ADR-018 covering tenancy, immutability, queues, policy, approvals, and secrets.
+- **Architecture Decision Records**: Consult [`docs/DECISIONS.md`](docs/DECISIONS.md) for ADR-001 through ADR-024 covering tenancy, immutability, queues, policy, approvals, Fastify architecture, production Google OAuth/sessions, and 5-role RBAC workspace management.
 - **Master Build Ledger**: Track stage-by-stage implementation evidence and exit gates in [`docs/BUILD_LEDGER.md`](docs/BUILD_LEDGER.md).
+- **Workspace & RBAC Documentation**: Review [`docs/product/WORKSPACE_MANAGEMENT.md`](docs/product/WORKSPACE_MANAGEMENT.md), [`docs/security/RBAC.md`](docs/security/RBAC.md), [`docs/security/INVITATIONS.md`](docs/security/INVITATIONS.md), and [`docs/api/WORKSPACES.md`](docs/api/WORKSPACES.md).
+- **Authentication & Security Specs**: Review [`docs/security/AUTHENTICATION.md`](docs/security/AUTHENTICATION.md), [`docs/security/SESSION_MANAGEMENT.md`](docs/security/SESSION_MANAGEMENT.md), and [`docs/security/TENANT_ACCESS_MODEL.md`](docs/security/TENANT_ACCESS_MODEL.md).
 - **Baseline Audit**: Review repository feasibility and external provider prerequisites in [`docs/REPO_AUDIT.md`](docs/REPO_AUDIT.md).
 
 ---

@@ -1,6 +1,6 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 
-export const userRole = pgEnum('user_role', ['owner', 'admin', 'member', 'viewer']);
+export const userRole = pgEnum('user_role', ['owner', 'admin', 'member', 'developer', 'operator', 'viewer']);
 export const workspacePlan = pgEnum('workspace_plan', ['free', 'pro', 'team', 'enterprise']);
 export const invitationStatus = pgEnum('invitation_status', ['pending', 'accepted', 'expired', 'revoked']);
 export const agentStatus = pgEnum('agent_status', ['draft', 'published', 'archived']);

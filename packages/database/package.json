@@ -28,6 +28,7 @@
     "@agentflow/auth": "workspace:*",
     "@agentflow/config": "workspace:*",
     "@agentflow/contracts": "workspace:*",
+    "@agentflow/domain": "workspace:*",
     "drizzle-orm": "^0.39.3",
     "pg": "^8.13.1"
   },

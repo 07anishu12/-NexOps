@@ -8,7 +8,8 @@ import {
 import {
   AuthenticationError,
   AuthorizationError,
-  TenantNotFoundError
+  TenantNotFoundError,
+  TenantConflictError
 } from '@agentflow/database';
 import { ZodError } from 'zod';
 
@@ -79,6 +80,33 @@ export function formatApiError(
       statusCode: 404,
       envelope: createApiErrorEnvelope({
         code: 'NOT_FOUND',
+        message: error.message,
+        requestId,
+        correlationId,
+        traceId
+      })
+    };
+  }
+
+  if (error instanceof TenantConflictError || (error instanceof Error && error.name === 'TenantConflictError')) {
+    return {
+      statusCode: 409,
+      envelope: createApiErrorEnvelope({
+        code: 'CONFLICT',
+        message: error.message,
+        requestId,
+        correlationId,
+        traceId
+      })
+    };
+  }
+
+  // 3. CORS rejection
+  if (error instanceof Error && error.message.includes('not allowed by CORS')) {
+    return {
+      statusCode: 403,
+      envelope: createApiErrorEnvelope({
+        code: 'FORBIDDEN',
         message: error.message,
         requestId,
         correlationId,

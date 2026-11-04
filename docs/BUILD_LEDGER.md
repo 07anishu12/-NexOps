@@ -11,7 +11,7 @@
 
 | Total Stages | Passed | In Progress | Blocked | Not Started | Needs Rework |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| 40 | 5 | 0 | 0 | 35 | 0 |
+| 40 | 6 | 0 | 0 | 34 | 0 |
 
 ---
 
@@ -23,7 +23,7 @@
 | **Stage 01: Monorepo foundation and independent deployables** | `passed` | `stage-01` | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `apps/*`, `packages/*`, `.github/workflows/ci.yml`, `README.md` | `pnpm install`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` across all 17 workspaces | PASSED | None | Stage 02 |
 | **Stage 02: Typed contracts, architecture rules & dependency boundaries** | `passed` | `stage-02` | `packages/contracts/src/*`, `packages/contracts/tests/*`, `tests/architecture/dependency-rules.test.ts`, `docs/DECISIONS.md` | `pnpm test:architecture`, `pnpm --filter @agentflow/contracts test`, `pnpm typecheck`, `pnpm lint` | PASSED | None | Stage 03 |
 | **Stage 03: PostgreSQL schema, Drizzle migrations, and tenant isolation** | `passed` | `stage-04-database` | `packages/database/*`, `drizzle.config.ts`, `migrations/*`, `docs/database/*` | `db:migrate`, `db:status`, `db:check`, `db:seed`, 27 unit & integration tests (`database.test.ts`, `database-integration.test.ts`), RLS verification, append-only triggers | PASSED | None | Stage 04 |
-| **Stage 04: Authentication, OAuth and session management** | `not_started` | — | `packages/auth/*`, `apps/web/app/(auth)/*` | Auth state machine tests, OAuth callback mock tests | Pending | Requires Stage 03, Google OAuth credentials for live test | Stage 05 |
+| **Stage 04: Authentication, OAuth and session management** | `passed` | `stage-07-auth-oauth` | `packages/auth/*`, `packages/database/src/repositories/identity.ts`, `packages/database/src/repositories/sessions.ts`, `apps/api/src/routes/v1/auth.ts`, `apps/api/src/services/google-oauth.ts`, `apps/web/app/login/*`, `apps/web/app/app/*` | 10 unit tests (`@agentflow/auth`), 9 integration tests (`@agentflow/api`), 51 database tests, 3 web tests | PASSED | None | Stage 05 |
 | **Stage 05: Workspace management, RBAC and audit logging** | `passed` | `stage-05-access-layer` | `packages/database/src/tenant-context.ts`, `packages/database/src/resolvers.ts`, `packages/database/src/repositories/*`, `packages/database/tests/database-access-security.test.ts`, `docs/security/TENANT_ACCESS_MODEL.md` | 24-point security test suite (`database-access-security.test.ts`), 27 database tests, 6 architecture tests, monorepo typecheck/lint/test | PASSED | None | Stage 06 |
 | **Stage 06: Control plane design system and navigation shell** | `not_started` | — | `apps/web/*`, `packages/ui/*` | Component visual smoke tests, route layout render tests | Pending | Requires Stage 05 | Stage 07 |
 | **Stage 07: Agent domain models and immutable versioning** | `not_started` | — | `packages/domain/agents/*`, `packages/database/schema/agents.ts` | Agent CRUD tests, immutable hash verification test | Pending | Requires Stage 06 | Stage 08 |
@@ -313,4 +313,108 @@ The existing 40-stage product roadmap names PostgreSQL schema work as Stage 03. 
   - Graceful shutdown draining connections and pools: **PASSED**
   - Comprehensive test suite (24/24 passing): **PASSED**
   - Zero monorepo boundary violations or build errors: **PASSED**
+  - Result: **PASSED**
+
+---
+
+## Prompt 07 Execution Evidence (Stage 07 — Production Authentication, Google OAuth & Session Management)
+
+- **Timestamp**: 2026-11-04T22:30:00+05:30
+- **Commands Executed**:
+  1. `pnpm --filter @agentflow/auth test` -> 10/10 tests passed (PKCE generation, HMAC-SHA256 state signing/verification, 256-bit session token hashing, CSRF token verification, cookie options for dev/prod, safe method & origin checks).
+  2. `pnpm --filter @agentflow/api test` -> 7/7 test files, 33/33 tests passed:
+     - `tests/auth-oauth-session.test.ts` (9 tests): Google OAuth start redirection with PKCE/S256, OAuth callback code exchange & session creation, returning user login, unverified Google email rejection, state cookie tampering/mismatch rejection, session inspection via `/me`, device session listing & selective revocation, global revocation via `/logout-all`, untrusted origin CSRF mutation blocking.
+     - `tests/app.test.ts` (8 tests), `tests/health.test.ts` (6 tests), `tests/openapi.test.ts` (2 tests), `tests/validation.test.ts` (3 tests), `tests/auth-tenancy.test.ts` (4 tests), `tests/rate-limit.test.ts` (1 test).
+  3. `pnpm --filter @agentflow/database test` -> 3/3 test files, 51/51 tests passed against live PostgreSQL container (identity & session repositories).
+  4. `pnpm --filter @agentflow/web test` -> 1/1 test file, 3/3 tests passed (`/api/health`, `/api/auth/logout` 303 redirect & cookie clearing, `getAuthenticatedSession()` null on empty cookies).
+  5. `pnpm test:architecture` -> 6/6 architecture boundary rules passed.
+  6. `pnpm typecheck` -> 27/27 tasks passed with 0 type errors.
+  7. `pnpm lint` -> 27/27 tasks passed with 0 warnings/errors.
+  8. `pnpm test` -> 27 Turborepo tasks + 5 infrastructure tests passed (100% pass rate).
+  9. `pnpm build` -> All 17 workspace packages and 5 applications (`apps/web`, `apps/api`, `apps/worker`, `apps/widget`, `apps/docs`) built successfully.
+- **Output Artifacts**:
+  - `packages/auth/src/oauth.ts`: RFC 7636 PKCE pair generation and HMAC-SHA256 state signing/verification.
+  - `packages/auth/src/session.ts`: 256-bit session token generation, SHA-256 token hashing, timingSafeEqual verification, `__Host-` cookie configuration.
+  - `packages/auth/src/csrf.ts`: CSRF token generation, origin validation, safe HTTP method checks.
+  - `packages/database/src/repositories/identity.ts`: `IdentityRepository` with transactional Google user provisioning, default workspace creation, owner membership assignment, and anti-account-takeover collision defense.
+  - `packages/database/src/repositories/sessions.ts`: `SessionRepository` with SHA-256 session token persistence, atomic rotation on login, throttled sliding touch, and single/all session revocation.
+  - `apps/api/src/services/google-oauth.ts`: `GoogleOAuthService` integrating `google-auth-library` `OAuth2Client` with ID token cryptographic signature, issuer, audience, expiry, nonce, and email verification.
+  - `apps/api/src/plugins/csrf.ts`: Fastify CSRF defense verifying Origin/Referer against allowed origins on cookie-authenticated mutations.
+  - `apps/api/src/routes/v1/auth.ts`: Authentication endpoints (`/google/start`, `/google/callback`, `/me`, `/logout`, `/logout-all`, `/sessions`, `/sessions/:sessionId`).
+  - `apps/web/app/login/page.tsx`: Control plane login interface with "Continue with Google" button and error query param banners.
+  - `apps/web/app/app/page.tsx`: Server-rendered protected control plane dashboard enforcing `getAuthenticatedSession()`.
+  - `apps/web/app/api/auth/logout/route.ts`: Web logout handler clearing local session cookies.
+  - `docs/security/AUTHENTICATION.md`: Complete Google OIDC flow, PKCE, token verification, account linking, Google Cloud Console setup.
+  - `docs/security/SESSION_MANAGEMENT.md`: Server-side session model, SHA-256 token hashing, `__Host-` cookies, CSRF defense, Next.js route protection.
+  - `docs/DECISIONS.md`: Added ADR-023.
+- **Stage 07 Exit Gate Assessment**:
+  - Google OpenID Connect flow with PKCE & signed state: **PASSED**
+  - Cryptographic Google ID token verification (`google-auth-library`): **PASSED**
+  - Transactional user & workspace provisioning: **PASSED**
+  - Anti-account-takeover defense on email collision: **PASSED**
+  - Server-side sessions with SHA-256 token hashing: **PASSED**
+  - Atomic session rotation on login: **PASSED**
+  - Immediate single logout and global logout-all: **PASSED**
+  - `__Host-af_session` cookie spec (HttpOnly, Secure, SameSite=Lax): **PASSED**
+  - CSRF origin verification on cookie mutations: **PASSED**
+  - Next.js `/app` server-side route protection & `/login` page: **PASSED**
+  - Comprehensive automated tests passing (10 auth + 33 api + 51 db + 3 web): **PASSED**
+  - Zero architecture boundary violations or monorepo build errors: **PASSED**
+  - Result: **PASSED**
+
+---
+
+## Prompt 08 Execution Evidence (Stage 08 — Workspace Onboarding, Management, Membership & RBAC)
+
+- **Timestamp**: 2026-11-04T23:25:00+05:30
+- **Commands Executed**:
+  1. `pnpm --filter @agentflow/database db:migrate` -> Applied migration `0002_workspace_rbac_invitations.sql` (added `developer`, `operator` to `user_role` enum; added `role` to `workspace_invitations`; added `timezone`, `locale`, `status`, `onboarding_completed`, `onboarding_intent` to `workspaces`).
+  2. `pnpm --filter @agentflow/domain test` -> 7/7 unit tests passed (`workspace.test.ts` slug normalization, reserved keywords rejection, length validation).
+  3. `pnpm --filter @agentflow/auth test` -> 11/11 tests passed (`rbac.test.ts` 35-permission matrix, role inheritance, requireWorkspacePermission, 256-bit invitation token generation and SHA-256 hashing).
+  4. `pnpm --filter @agentflow/database test` -> 55/55 live tests passed across 4 test suites:
+     - `tests/workspaces-members-invitations.test.ts`: atomic workspace creation with slug collision loop, last-owner demotion/removal protection, invitation token hashing & single-use consumption.
+     - `tests/database-access-security.test.ts` (24 tests)
+     - `tests/database-integration.test.ts` (22 tests)
+     - `tests/database.test.ts` (5 tests)
+  5. `pnpm --filter @agentflow/api test` -> 45/45 tests passed across 8 test suites:
+     - `tests/workspaces-onboarding-invitations.test.ts` (12 tests): workspace CRUD, settings, session active workspace switching, onboarding completion, transfer ownership, member role updates, member removal, last-owner conflict (409), single-use invitation creation & acceptance, anti-hijacking email mismatch rejection (403), expired/consumed token rejection (409).
+     - `tests/auth-oauth-session.test.ts` (9 tests)
+     - `tests/app.test.ts` (8 tests)
+     - `tests/health.test.ts` (6 tests)
+     - `tests/auth-tenancy.test.ts` (4 tests)
+     - `tests/validation.test.ts` (3 tests)
+     - `tests/openapi.test.ts` (2 tests)
+     - `tests/rate-limit.test.ts` (1 test)
+  6. `pnpm --filter @agentflow/web test` -> 9/9 tests passed (health, logout, session, `/api/workspaces`, `/api/workspaces/[id]/select`, `/api/workspaces/[id]/onboarding`, `/api/workspaces/[id]/members`, `/api/invitations/accept`).
+  7. `pnpm --filter @agentflow/web build` -> Next.js 15 production build compiled with 13 routes and 0 errors.
+  8. `pnpm test:architecture` -> 6/6 architecture boundary rules passed.
+  9. `pnpm typecheck` -> All workspace packages and applications passed.
+  10. `pnpm lint` -> All workspace packages and applications passed with 0 warnings.
+- **Output Artifacts**:
+  - `packages/database/migrations/0002_workspace_rbac_invitations.sql`: Enum and schema migration.
+  - `packages/domain/src/workspace.ts`: Slug validation, normalization, and reserved slug dictionary.
+  - `packages/auth/src/rbac.ts`: 35-permission matrix, 5-role mappings, `requireWorkspacePermission`.
+  - `packages/auth/src/invitations.ts`: 256-bit token generator and SHA-256 token hasher.
+  - `packages/database/src/repositories/workspaces.ts`: Multi-tenant workspace repository with slug collision loop, last-owner guards, and membership management.
+  - `packages/database/src/repositories/invitations.ts`: Cryptographic single-use invitation repository.
+  - `apps/api/src/services/email.ts`: Pluggable `EmailDeliveryService` with `MockEmailService`.
+  - `apps/api/src/routes/v1/workspaces.ts`: 15 REST endpoints for workspaces, members, and invitations.
+  - `apps/web/components/WorkspaceSwitcher.tsx`: Interactive workspace selection component.
+  - `apps/web/app/app/workspaces/new/page.tsx`: Workspace creation interface with live slug derivation.
+  - `apps/web/app/onboarding/page.tsx`: 3-step setup wizard (Use Case -> Channels -> Integrations).
+  - `apps/web/app/app/settings/page.tsx` & `settings-view.tsx`: Workspace settings, member management, and invitation dispatch.
+  - `apps/web/app/invite/page.tsx` & `invite-view.tsx`: Single-use invitation acceptance view.
+  - `docs/product/WORKSPACE_MANAGEMENT.md`, `docs/security/RBAC.md`, `docs/security/INVITATIONS.md`, `docs/api/WORKSPACES.md`.
+  - `docs/DECISIONS.md`: Added ADR-024.
+- **Stage 08 Exit Gate Assessment**:
+  - Multi-tenant workspace lifecycle and atomic creation: **PASSED**
+  - Slug generation, normalization, and collision loop: **PASSED**
+  - 5 explicit workspace roles and 35 granular permissions: **PASSED**
+  - Last-owner protection (cannot demote/remove final owner): **PASSED**
+  - Single-use 256-bit cryptographic invitations with blind SHA-256 hashing: **PASSED**
+  - Anti-hijacking email verification check on invitation acceptance: **PASSED**
+  - Server-side session active workspace switching: **PASSED**
+  - 3-step onboarding flow (use case, channels, skip integrations): **PASSED**
+  - Web control plane integration with Next.js App Router: **PASSED**
+  - Full test suite passing across monorepo: **PASSED**
   - Result: **PASSED**

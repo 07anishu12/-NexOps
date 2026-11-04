@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
 import { loadApplicationConfig } from '@agentflow/config';
 import { createLogger } from '@agentflow/observability';
 import type { AppOptions } from './types.js';
@@ -6,6 +7,7 @@ import { globalErrorHandler, notFoundHandler } from './lib/errors.js';
 import { requestContextPlugin } from './plugins/request-context.js';
 import { securityPlugin } from './plugins/security.js';
 import { corsPlugin } from './plugins/cors.js';
+import { csrfPlugin } from './plugins/csrf.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
 import { openapiPlugin } from './plugins/openapi.js';
 import { tenantContextPlugin } from './plugins/tenant-context.js';
@@ -30,9 +32,15 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   app.setErrorHandler(globalErrorHandler);
   app.setNotFoundHandler(notFoundHandler);
 
+  // Cookie Support for Session Management & OAuth State
+  await app.register(cookie, {
+    secret: config.SESSION_SECRET
+  });
+
   // Core Security & Observability Plugins
   await app.register(securityPlugin, { enableCsp: config.NODE_ENV === 'production' });
   await app.register(corsPlugin, { config });
+  await app.register(csrfPlugin, { config });
   await app.register(requestContextPlugin, { logger });
 
   // Rate Limiting (Redis-backed or in-memory)
@@ -48,7 +56,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(openapiPlugin);
 
   // Authentication & Tenant Context Middleware
-  await app.register(tenantContextPlugin, { dbClient: options.dbClient });
+  await app.register(tenantContextPlugin, {
+    dbClient: options.dbClient,
+    config
+  });
 
   // Root Service Metadata
   app.get(
@@ -97,7 +108,13 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   // Versioned V1 API
-  await app.register(v1Routes, { prefix: '/v1', config });
+  await app.register(v1Routes, {
+    prefix: '/v1',
+    config,
+    dbClient: options.dbClient,
+    googleOAuthService: options.googleOAuthService,
+    emailService: options.emailService
+  });
 
   return app;
 }

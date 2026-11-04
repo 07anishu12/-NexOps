@@ -22,6 +22,7 @@ The `@agentflow/database` package provides unified CLI scripts for schema evolut
 - The authoritative baseline is established by Drizzle migrations:
   - `0000_productive_exiles.sql`: 983 lines defining all 33 PostgreSQL enums, 48 tables, composite unique keys, foreign keys, and check constraints.
   - `0001_tenant_security.sql`: 67 lines establishing role `agentflow_app`, RLS enablement and force on 44 tables, tenant isolation policies, and append-only immutability triggers.
+  - `0002_workspace_rbac_invitations.sql`: Enum expansion (`developer`, `operator` added to `user_role`), added `role` column to `workspace_invitations`, and added `timezone`, `locale`, `status`, `onboarding_completed`, and `onboarding_intent` to `workspaces`.
 
 ### 2.2 Migration Tracking
 Migrations are tracked in PostgreSQL schema `drizzle` under table `__drizzle_migrations`:

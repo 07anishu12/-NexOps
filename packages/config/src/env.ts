@@ -41,11 +41,15 @@ export const EnvSchema = z.object({
   OBJECT_STORAGE_ACCESS_KEY: z.string().min(3).default('agentflowlocal'),
   OBJECT_STORAGE_SECRET_KEY: z.string().min(8).default('agentflowlocal-secret'),
 
-  // OAuth
+  // OAuth & Session
   GOOGLE_OAUTH_CLIENT_ID: z.string().default('mock-google-client-id'),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().default('mock-google-client-secret'),
-  GOOGLE_OAUTH_REDIRECT_URI: z.string().default('http://localhost:3000/api/auth/callback/google'),
+  GOOGLE_OAUTH_REDIRECT_URI: z.string().default('http://localhost:4000/v1/auth/google/callback'),
   OAUTH_STATE_SIGNING_KEY_REFERENCE: z.string().min(16).default('dev-oauth-state-signing-key-min-32-chars'),
+  SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(604800),
+  SESSION_COOKIE_NAME: z.string().default('af_session'),
+  SESSION_COOKIE_DOMAIN: z.string().optional(),
+  AUTH_ALLOWED_REDIRECT_ORIGINS: z.string().default('http://localhost:3000'),
 
   // Models
   DEFAULT_MODEL_PROVIDER: z.enum(['openai', 'anthropic', 'gemini', 'groq', 'mock']).default('openai'),

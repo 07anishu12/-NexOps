@@ -44,6 +44,11 @@ export class TenantConflictError extends TenantSecurityError {
   }
 }
 
+export const ConflictError = TenantConflictError;
+export type ConflictError = TenantConflictError;
+export const NotFoundError = TenantNotFoundError;
+export type NotFoundError = TenantNotFoundError;
+
 // ==============================================================================
 // 2. Discriminated Principal Context Architecture
 // ==============================================================================

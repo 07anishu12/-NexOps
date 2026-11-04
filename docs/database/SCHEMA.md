@@ -61,11 +61,11 @@ All database operations pass through the programmatic data access layer in `@age
 
 ### Domain 1: Identity and Workspace Management (6 tables)
 - `users`: Global platform user identity. Primary key `id UUID`. Unique `email`.
-- `workspaces`: Tenant root. Primary key `id UUID`. Unique `slug`. Owner foreign key to `users(id) ON DELETE RESTRICT`. Plan enum: `free`, `pro`, `team`, `enterprise`.
+- `workspaces`: Tenant root. Primary key `id UUID`. Unique `slug`. Owner foreign key to `users(id) ON DELETE RESTRICT`. Plan enum: `free`, `pro`, `team`, `enterprise`. Columns: `name`, `slug`, `timezone`, `locale`, `status` (`active`, `archived`), `onboarding_completed`, `onboarding_intent`.
 - `oauth_accounts`: Third-party identity bindings (Google OAuth). Foreign key to `users(id) ON DELETE CASCADE`. Unique on `(provider, provider_subject)`.
 - `sessions`: Authenticated user sessions. Stores `session_token_hash` (SHA-256), `user_id`, optional active `workspace_id`, `expires_at`, `revoked_at`.
-- `workspace_members`: Workspace memberships and RBAC. Composite unique on `(workspace_id, user_id)` and `(workspace_id, id)`. Roles: `owner`, `admin`, `member`, `viewer`.
-- `workspace_invitations`: Team invitations. Stores `token_hash` (SHA-256), `email`, `role`, `expires_at`, `accepted_at`. Composite foreign key to `workspace_members(workspace_id, user_id)`.
+- `workspace_members`: Workspace memberships and RBAC. Composite unique on `(workspace_id, user_id)` and `(workspace_id, id)`. Roles: `owner`, `admin`, `developer`, `operator`, `viewer` (plus legacy `member`).
+- `workspace_invitations`: Team invitations. Stores `token_hash` (SHA-256), `email`, `role`, `token_expires_at`, `accepted_at`, `accepted_by`. Composite foreign key to `workspace_members(workspace_id, user_id)`.
 
 ### Domain 2: Agents and Immutable Versions (5 tables)
 - `agents`: Logical agent definition. Scoped to `workspace_id`. Draft configuration stored in `current_draft JSONB`. Status: `draft`, `published`, `archived`. Soft-deletable via `archived_at`.

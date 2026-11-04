@@ -33,7 +33,13 @@ The API is organized into functional domain tags:
    - `GET /v1`: Versioned root discovery.
    - `GET /v1/health`: Backward compatibility health probe.
 2. **`Auth`**: Tenant profile, session introspection, and principal resolution.
-   - `GET /v1/auth/me`: Inspect authenticated tenant context and claims.
+   - `GET /v1/auth/google/start`: Initiate Google OAuth 2.0 / OIDC authorization code flow with PKCE (S256) and signed HMAC state.
+   - `GET /v1/auth/google/callback`: Handle OAuth callback, verify state and Google ID token, provision identity, and issue secure session cookie.
+   - `GET /v1/auth/me`: Inspect authenticated user profile, active session, and workspace memberships.
+   - `POST /v1/auth/logout`: Invalidate current session and clear session cookie (CSRF-protected).
+   - `POST /v1/auth/logout-all`: Revoke all active sessions across all devices for the authenticated user.
+   - `GET /v1/auth/sessions`: Enumerate all active sessions, IP addresses, user agents, and creation times for the authenticated user.
+   - `DELETE /v1/auth/sessions/:sessionId`: Invalidate a specific remote device session by UUID.
 3. **`Workspaces`**: Workspace-level metadata and tenancy boundaries.
    - `GET /v1/workspaces/current`: Tenant-scoped workspace details.
 4. **`Agents`**: Agent lifecycle and configuration validation.

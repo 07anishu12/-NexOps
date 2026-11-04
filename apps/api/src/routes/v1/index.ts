@@ -1,5 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { EnvConfig } from '@agentflow/config';
+import type { DatabaseClient } from '@agentflow/database';
+import type { IGoogleOAuthService } from '../../services/google-oauth.js';
+import type { EmailDeliveryService } from '../../services/email.js';
 import { authRoutes } from './auth.js';
 import { workspaceRoutes } from './workspaces.js';
 import { agentRoutes } from './agents.js';
@@ -8,6 +11,9 @@ import { integrationRoutes } from './integrations.js';
 
 interface V1RouterOptions {
   config?: EnvConfig;
+  dbClient?: DatabaseClient;
+  googleOAuthService?: IGoogleOAuthService;
+  emailService?: EmailDeliveryService;
 }
 
 export const v1Routes: FastifyPluginAsync<V1RouterOptions> = async (
@@ -69,8 +75,24 @@ export const v1Routes: FastifyPluginAsync<V1RouterOptions> = async (
   );
 
   // Modular Domain Route Registration
-  await fastify.register(authRoutes, { prefix: '/auth' });
-  await fastify.register(workspaceRoutes, { prefix: '/workspaces' });
+  await fastify.register(authRoutes, {
+    prefix: '/auth',
+    config: options.config,
+    dbClient: options.dbClient,
+    googleOAuthService: options.googleOAuthService
+  });
+  await fastify.register(workspaceRoutes, {
+    prefix: '/workspaces',
+    dbClient: options.dbClient,
+    config: options.config,
+    emailService: options.emailService
+  });
+
+  // Alias POST /v1/invitations/accept for direct invitation acceptance
+  fastify.post('/invitations/accept', async (_request, reply) => {
+    return reply.status(307).redirect('/v1/workspaces/invitations/accept');
+  });
+
   await fastify.register(agentRoutes, { prefix: '/agents' });
   await fastify.register(runRoutes, { prefix: '/runs' });
   await fastify.register(integrationRoutes, { prefix: '/integrations' });

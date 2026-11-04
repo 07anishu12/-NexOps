@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -30,6 +31,11 @@ export const workspaces = pgTable(
     slug: varchar('slug', { length: 100 }).notNull(),
     ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     plan: workspacePlan('plan').default('free').notNull(),
+    timezone: varchar('timezone', { length: 50 }).default('UTC').notNull(),
+    locale: varchar('locale', { length: 20 }).default('en').notNull(),
+    status: varchar('status', { length: 20 }).default('active').notNull(),
+    onboardingCompleted: boolean('onboarding_completed').default(false).notNull(),
+    onboardingIntent: jsonb('onboarding_intent').$type<Record<string, unknown>>().default({}).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
   },
@@ -101,6 +107,7 @@ export const workspaceInvitations = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
     email: varchar('email', { length: 255 }).notNull(),
+    role: userRole('role').default('viewer').notNull(),
     tokenHash: varchar('token_hash', { length: 64 }).notNull(),
     invitedBy: uuid('invited_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
     status: invitationStatus('status').default('pending').notNull(),

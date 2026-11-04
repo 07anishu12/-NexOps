@@ -13,6 +13,9 @@ import { WebhookRepository } from './webhooks.js';
 import { FdeRepository } from './fde.js';
 import { AuditRepository } from './audit.js';
 import { ToolRepository } from './tools.js';
+import { IdentityRepository } from './identity.js';
+import { SessionRepository } from './sessions.js';
+import { InvitationRepository } from './invitations.js';
 
 export * from './base.js';
 export * from './workspaces.js';
@@ -29,9 +32,13 @@ export * from './webhooks.js';
 export * from './fde.js';
 export * from './audit.js';
 export * from './tools.js';
+export * from './identity.js';
+export * from './sessions.js';
+export * from './invitations.js';
 
 export interface Repositories {
   workspaces: WorkspaceRepository;
+  invitations: InvitationRepository;
   agents: AgentRepository;
   deployments: DeploymentRepository;
   conversations: ConversationRepository;
@@ -45,11 +52,14 @@ export interface Repositories {
   fde: FdeRepository;
   audit: AuditRepository;
   tools: ToolRepository;
+  identity: IdentityRepository;
+  sessions: SessionRepository;
 }
 
 export function createRepositories(client: DatabaseClient): Repositories {
   return {
     workspaces: new WorkspaceRepository(client),
+    invitations: new InvitationRepository(client),
     agents: new AgentRepository(client),
     deployments: new DeploymentRepository(client),
     conversations: new ConversationRepository(client),
@@ -62,6 +72,8 @@ export function createRepositories(client: DatabaseClient): Repositories {
     webhooks: new WebhookRepository(client),
     fde: new FdeRepository(client),
     audit: new AuditRepository(client),
-    tools: new ToolRepository(client)
+    tools: new ToolRepository(client),
+    identity: new IdentityRepository(client),
+    sessions: new SessionRepository(client)
   };
 }

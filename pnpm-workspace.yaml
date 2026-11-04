@@ -4,3 +4,6 @@ packages:
 
 allowBuilds:
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - google-auth-library@11.3.3

@@ -30,6 +30,9 @@
 - [ADR-019: Architectural Dependency Boundaries and Browser Isolation](#adr-019-architectural-dependency-boundaries-and-browser-isolation)
 - [ADR-020: Local Infrastructure and Stage Sequencing](#adr-020-local-infrastructure-and-stage-sequencing)
 - [ADR-021: Database Access Layer, Discriminated Tenant Context, and RLS Hardening](#adr-021-database-access-layer-discriminated-tenant-context-and-rls-hardening)
+- [ADR-022: Standalone Fastify API Architecture and Production Operational Middleware](#adr-022-standalone-fastify-api-architecture-and-production-operational-middleware)
+- [ADR-023: Production Authentication, Google OAuth, and Session Management](#adr-023-production-authentication-google-oauth-and-session-management)
+- [ADR-024: Multi-Tenant Workspace Management, 5-Role RBAC Model, and Secure Single-Use Invitations](#adr-024-multi-tenant-workspace-management-5-role-rbac-model-and-secure-single-use-invitations)
 
 ---
 
@@ -456,3 +459,92 @@ Stage 04 established the PostgreSQL 16.4 schema, 44 RLS policies, and append-onl
 - Fast, deterministic test suite (24 unit/integration tests running in ~2s via in-memory injection).
 - Production-ready observability, security hardening, and rate limiting active out of the box.
 - All future domain endpoints have clean, modular registration points without code duplication.
+
+---
+
+## ADR-023: Production Authentication, Google OAuth, and Session Management
+
+### Context
+Stage 06 provided the Fastify v5 foundation and Stage 05 provided the database tenant resolvers. However, control plane user authentication required an end-to-end, production-grade identity pipeline. We needed:
+1. Google OpenID Connect authentication using Authorization Code Flow with PKCE and signed HMAC state.
+2. Cryptographic ID token verification via official Google PKI libraries (`google-auth-library`).
+3. Transactional identity provisioning, default workspace creation, and anti-account-takeover rules on email collisions.
+4. Server-side session management storing only SHA-256 token hashes in PostgreSQL, supporting atomic session rotation on login, individual device revocation, and instant global revocation across all devices (`logout-all`).
+5. Secure HTTP-only cookie delivery with `__Host-` prefix protection in production.
+6. Cross-Site Request Forgery (CSRF) defenses validating Origin/Referer on cookie-authenticated mutations.
+7. Next.js 15 server-side route protection for `/app` and clean redirection to `/login`.
+
+### Decision
+1. **Google OIDC with PKCE & HMAC-Signed State**:
+   - Implemented `generatePkcePair` (RFC 7636) generating a 32-byte `base64url` verifier and SHA-256 `code_challenge`.
+   - Implemented `signOAuthState` and `verifyOAuthState` using HMAC-SHA256 with `SESSION_SECRET`, embedding a 32-byte nonce, the PKCE verifier, return path, and a 10-minute expiry timestamp.
+   - Dual-state validation: the state is verified cryptographically and compared in constant time (`timingSafeEqual`) against a temporary HTTP-only cookie (`af_oauth_state`).
+2. **Cryptographic Google ID Token Verification**:
+   - Integrated `google-auth-library` `OAuth2Client.verifyIdToken()` validating Google's RSA-256 signature against Google JWKS certs, checking audience, issuer, expiration, nonce match, and requiring `payload.email_verified === true`.
+   - Dependency-injected `GoogleOAuthService` to permit isolated unit/integration testing with mock adapters without dynamic network calls.
+3. **Transactional Identity Provisioning & Account Linking Safety**:
+   - Implemented `IdentityRepository.findOrCreateUserFromGoogle` executing inside an atomic transaction.
+   - For new users: creates `users` record, creates `oauth_accounts` record linked to the Google subject ID (`sub`), creates default personal workspace, and provisions `workspace_memberships` with role `owner`.
+   - For returning users: updates display name, avatar, and OAuth access/refresh tokens.
+   - **Anti-Account-Takeover Defense**: If a user record with the incoming email exists but has no linked Google account, automatic email-only merging is strictly forbidden. The system throws a 409 `ConflictError` to prevent unauthenticated account takeover.
+4. **Server-Side Session Store & Token Hashing**:
+   - Implemented `SessionRepository` and `packages/auth/src/session.ts`.
+   - Raw tokens are 256-bit entropy `base64url` strings. Raw tokens are never stored in the database.
+   - Database stores only `token_hash = sha256(rawToken)`.
+   - Atomic session rotation on login (`rotateSession` revokes previous cookie session and creates fresh session).
+   - Throttled sliding touch (`touchSession` updates `last_active_at` at most once every 5 minutes).
+   - Global revocation (`POST /v1/auth/logout-all`) invalidates all active sessions for a user instantly.
+5. **Cookie Security**:
+   - Uses `__Host-af_session` in production (`af_session` in development), enforcing `HttpOnly`, `Secure`, `SameSite=Lax`, and `Path=/`.
+6. **CSRF Protection**:
+   - Implemented Fastify `csrfPlugin` validating `Origin` and `Referer` headers against `AUTH_ALLOWED_REDIRECT_ORIGINS` for cookie-authenticated mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`).
+7. **Control Plane Route Protection**:
+   - Implemented Next.js App Router server-side session resolution (`apps/web/lib/session.ts`) forwarding cookies to `/v1/auth/me`. Protected route `/app` redirects unauthenticated visitors to `/login?error=session_expired`.
+
+### Consequences
+- True enterprise-grade authentication with zero dummy buttons or client-side trust.
+- Immunity to session fixation, token exposure via XSS (`HttpOnly`), and CSRF.
+- Clean Next.js 15 App Router integration without exposing session secrets or database packages to client bundles.
+- 100% test coverage across OAuth state validation, PKCE verification, login, rotation, single logout, logout-all, and CSRF rejection.
+
+---
+
+## ADR-024: Multi-Tenant Workspace Management, 5-Role RBAC Model, and Secure Single-Use Invitations
+
+### Context
+Stage 07 established production Google OIDC authentication and server-side sessions. Stage 08 requires a comprehensive multi-tenant workspace management layer allowing users to create workspaces, switch active tenant context, invite team members, enforce granular authorization, and prevent privilege escalation.
+Key requirements:
+1. Multi-tenant workspace lifecycle: atomic creation, slug normalization, reserved routes protection, and collision resolution.
+2. 5 explicit workspace roles (`owner`, `admin`, `developer`, `operator`, `viewer`) plus legacy `member` backwards compatibility.
+3. Centralized 35-permission matrix across 10 security domains enforced via route pre-handlers and scoped database transactions.
+4. Member management with last-owner protection (cannot demote or remove the last remaining owner) and anti-self-escalation guards.
+5. Secure invitation system: single-use 256-bit cryptographically strong token, blind storage via SHA-256 hash, 7-day expiration, and anti-hijacking email matching against Google OIDC verified email.
+6. Server-side session active workspace selection and switching.
+7. Next.js 15 Web Control Plane integration: workspace switcher, creation wizard, 3-step onboarding flow, team members & invitations settings, and invitation acceptance flow.
+
+### Decision
+1. **Database Schema Enhancements (Migration `0002_workspace_rbac_invitations.sql`)**:
+   - Added `developer` and `operator` to PostgreSQL `user_role` enum.
+   - Added `role` column to `workspace_invitations` defaulting to `'viewer'`.
+   - Added `timezone`, `locale`, `status`, `onboarding_completed`, and `onboarding_intent` columns to `workspaces`.
+2. **Slug Architecture & Collision Retry**:
+   - Implemented `generateWorkspaceSlug` and `validateWorkspaceSlug` in `@agentflow/domain`. Enforces lowercase ASCII, numbers, and hyphens (`3-48` chars), rejects 26 reserved platform routes.
+   - In `WorkspaceRepository.createWorkspace`, an atomic pre-insert collision check runs inside the transaction, retrying with cryptographic random suffix up to 5 times.
+3. **5-Role RBAC Engine**:
+   - Implemented `packages/auth/src/rbac.ts` defining 35 granular permissions across 10 domains (`workspace`, `member`, `agent`, `workflow`, `integration`, `credential`, `execution`, `audit`, `billing`, `invitation`).
+   - Fastify route guard `fastify.requireWorkspacePermission(permission)` checks `hasPermission(role, permission)` before executing handlers.
+   - Repository-level guards enforce last-owner protection (`SELECT COUNT(*) WHERE role = 'owner' <= 1`) and prevent non-owners from assigning `owner` or elevating their own role.
+4. **Cryptographic Single-Use Invitations**:
+   - Implemented `generateInvitationToken` (256-bit base64url) and `hashInvitationToken` (SHA-256) in `@agentflow/auth`.
+   - Stored only SHA-256 `token_hash` in PostgreSQL. Raw token is never persisted.
+   - `acceptInvitation` executes inside an atomic transaction: verifies unconsumed token, checks 7-day expiration, verifies anti-hijacking constraint (`user.email === invitation.email`), creates membership, sets `accepted_at = NOW()`, `accepted_by = user.id`, and writes immutable audit record.
+5. **Session Active Workspace Selection**:
+   - `POST /v1/workspaces/:workspaceId/select` validates user membership in target workspace and persists `active_workspace_id` in PostgreSQL `sessions` table.
+6. **Web Control Plane Architecture**:
+   - Implemented `WorkspaceSwitcher` dropdown component, workspace creation page (`/app/workspaces/new`), multi-step onboarding wizard (`/onboarding`), workspace settings with Team Members & Invitations tabs (`/app/settings`), and public invitation acceptance page (`/invite`).
+
+### Consequences
+- Full multi-tenant workspace operational capabilities with hardened RLS isolation.
+- Complete protection against privilege escalation, rogue token redemption, and accidental workspace abandonment (last-owner guard).
+- All 15 workspace endpoints fully tested and verified against live PostgreSQL container.
+- Next.js Web Control Plane builds with zero errors and passes all test suites.

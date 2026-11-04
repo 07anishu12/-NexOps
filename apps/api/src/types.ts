@@ -5,6 +5,8 @@ import type { EnvConfig } from '@agentflow/config';
 import type { Logger } from '@agentflow/observability';
 import type { DatabaseClient } from '@agentflow/database';
 import type { Redis } from 'ioredis';
+import type { IGoogleOAuthService } from './services/google-oauth.js';
+import type { EmailDeliveryService } from './services/email.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -26,6 +28,8 @@ export interface AppOptions {
   dbClient?: DatabaseClient;
   redisClient?: Redis;
   enableRateLimit?: boolean;
+  googleOAuthService?: IGoogleOAuthService;
+  emailService?: EmailDeliveryService;
 }
 
 export type { FastifyInstance, FastifyRequest, FastifyReply };

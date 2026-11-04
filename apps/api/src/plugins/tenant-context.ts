@@ -10,9 +10,11 @@ import {
   AuthorizationError
 } from '@agentflow/database';
 import type { WorkspaceRole } from '@agentflow/contracts';
+import type { EnvConfig } from '@agentflow/config';
 
 interface TenantContextPluginOptions {
   dbClient?: DatabaseClient;
+  config?: EnvConfig;
 }
 
 export type TenantAuthHook = (
@@ -33,7 +35,7 @@ export function createRequireTenantAuth(allowedRoles?: WorkspaceRole[]): TenantA
           throw new AuthorizationError(`Insufficient workspace permissions. Required one of: ${allowedRoles.join(', ')}`);
         }
       } else if (request.tenantContext.principalType === 'api_key') {
-        // API keys have full programmatic or scoped access; verify scopes if needed in future
+        // Programmatic API key callers
       }
     }
   };
@@ -52,6 +54,9 @@ const tenantContextPluginCallback: FastifyPluginAsync<TenantContextPluginOptions
   options
 ) => {
   const dbClient = options.dbClient;
+  const config = options.config;
+  const cookieName = config?.SESSION_COOKIE_NAME ?? 'af_session';
+  const hostCookieName = `__Host-${cookieName}`;
 
   // Decorate fastify with helper pre-handlers
   fastify.decorate('requireTenantAuth', createRequireTenantAuth);
@@ -93,12 +98,27 @@ const tenantContextPluginCallback: FastifyPluginAsync<TenantContextPluginOptions
       return;
     }
 
-    // 3. User Session Cookie or Authorization: Bearer sess_...
+    // 3. User Session Cookie, x-session-token, or Authorization: Bearer sess_...
     let sessionToken: string | undefined;
-    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer sess_')) {
+
+    // A. Check Fastify parsed cookies
+    if (request.cookies) {
+      sessionToken = request.cookies[hostCookieName] ?? request.cookies[cookieName] ?? request.cookies['af_session'];
+    }
+
+    // B. Check x-session-token header
+    if (!sessionToken && typeof request.headers['x-session-token'] === 'string') {
+      sessionToken = request.headers['x-session-token'].trim();
+    }
+
+    // C. Check Authorization: Bearer sess_...
+    if (!sessionToken && typeof authHeader === 'string' && authHeader.startsWith('Bearer sess_')) {
       sessionToken = authHeader.slice(7).trim();
-    } else if (typeof request.headers.cookie === 'string') {
-      const match = request.headers.cookie.match(/(?:^|;\s*)af_session=([^;]+)/);
+    }
+
+    // D. Fallback regex on raw cookie header
+    if (!sessionToken && typeof request.headers.cookie === 'string') {
+      const match = request.headers.cookie.match(/(?:^|;\s*)(?:__Host-)?af_session=([^;]+)/);
       if (match && match[1]) {
         sessionToken = decodeURIComponent(match[1]);
       }
