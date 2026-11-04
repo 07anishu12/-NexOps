@@ -11,7 +11,7 @@
 
 | Total Stages | Passed | In Progress | Blocked | Not Started | Needs Rework |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| 40 | 4 | 0 | 0 | 36 | 0 |
+| 40 | 5 | 0 | 0 | 35 | 0 |
 
 ---
 
@@ -24,7 +24,7 @@
 | **Stage 02: Typed contracts, architecture rules & dependency boundaries** | `passed` | `stage-02` | `packages/contracts/src/*`, `packages/contracts/tests/*`, `tests/architecture/dependency-rules.test.ts`, `docs/DECISIONS.md` | `pnpm test:architecture`, `pnpm --filter @agentflow/contracts test`, `pnpm typecheck`, `pnpm lint` | PASSED | None | Stage 03 |
 | **Stage 03: PostgreSQL schema, Drizzle migrations, and tenant isolation** | `passed` | `stage-04-database` | `packages/database/*`, `drizzle.config.ts`, `migrations/*`, `docs/database/*` | `db:migrate`, `db:status`, `db:check`, `db:seed`, 27 unit & integration tests (`database.test.ts`, `database-integration.test.ts`), RLS verification, append-only triggers | PASSED | None | Stage 04 |
 | **Stage 04: Authentication, OAuth and session management** | `not_started` | — | `packages/auth/*`, `apps/web/app/(auth)/*` | Auth state machine tests, OAuth callback mock tests | Pending | Requires Stage 03, Google OAuth credentials for live test | Stage 05 |
-| **Stage 05: Workspace management, RBAC and audit logging** | `not_started` | — | `packages/domain/workspace/*`, `packages/database/schema/audit.ts` | Multi-tenant RBAC tests, audit event persistence tests | Pending | Requires Stage 04 | Stage 06 |
+| **Stage 05: Workspace management, RBAC and audit logging** | `passed` | `stage-05-access-layer` | `packages/database/src/tenant-context.ts`, `packages/database/src/resolvers.ts`, `packages/database/src/repositories/*`, `packages/database/tests/database-access-security.test.ts`, `docs/security/TENANT_ACCESS_MODEL.md` | 24-point security test suite (`database-access-security.test.ts`), 27 database tests, 6 architecture tests, monorepo typecheck/lint/test | PASSED | None | Stage 06 |
 | **Stage 06: Control plane design system and navigation shell** | `not_started` | — | `apps/web/*`, `packages/ui/*` | Component visual smoke tests, route layout render tests | Pending | Requires Stage 05 | Stage 07 |
 | **Stage 07: Agent domain models and immutable versioning** | `not_started` | — | `packages/domain/agents/*`, `packages/database/schema/agents.ts` | Agent CRUD tests, immutable hash verification test | Pending | Requires Stage 06 | Stage 08 |
 | **Stage 08: Model gateway and multi-provider abstraction** | `not_started` | — | `packages/runtime/model-gateway/*` | Provider adapter tests, error normalization, quota limit tests | Pending | Requires Stage 07, LLM provider API keys | Stage 09 |
@@ -235,4 +235,38 @@ The existing 40-stage product roadmap names PostgreSQL schema work as Stage 03. 
   - Clean migration journal and status reporting: **PASSED**
   - Idempotent and safe development seeding: **PASSED**
   - Result: **PASSED**
+
+---
+
+## Prompt 05 Execution Evidence (Stage 05 — Database Access Layer, Tenant Context & RLS Hardening)
+
+- **Timestamp**: 2026-11-04T09:30:00+05:30
+- **Commands Executed**:
+  1. `pnpm --filter @agentflow/database test` -> 51/51 tests passed:
+     - 5/5 unit tests (`database.test.ts`)
+     - 22/22 live integration tests (`database-integration.test.ts`)
+     - 24/24 access security scenario tests (`database-access-security.test.ts`)
+  2. `pnpm --filter @agentflow/auth test` -> 4/4 auth unit tests passed including constant-time API key verification.
+  3. `pnpm test:architecture` -> 6/6 architecture dependency boundary tests passed with 0 violations.
+  4. `pnpm typecheck` -> 26 Turborepo tasks passed with 0 type errors.
+  5. `pnpm lint` -> 26 Turborepo tasks passed with 0 warnings/errors.
+  6. `pnpm test` -> All 26 workspace test suites passed.
+  7. Independent application builds (`apps/web`, `apps/api`, `apps/worker`, `apps/widget`, `apps/docs`) all succeeded.
+- **Output Artifacts**:
+  - `packages/database/src/tenant-context.ts`: Discriminated `TrustedTenantContext` union, error hierarchy (`TenantSecurityError`, `AuthenticationError`, `AuthorizationError`, `TenantNotFoundError`), narrow constructors, and permission assertion (`assertContextPermission`).
+  - `packages/database/src/resolvers.ts`: 4 verified entry paths (`resolveSessionContext`, `resolveApiKeyContext`, `resolveWidgetSessionContext`, `resolveWorkerContext`) with constant-time equality matching and origin allowlist enforcement.
+  - `packages/database/src/repositories/*`: 15 typed tenant-scoped repositories extending `BaseRepository` with `withScopedTransaction` (`SET LOCAL ROLE agentflow_app` + `SET LOCAL app.current_workspace_id`).
+  - `packages/database/tests/database-access-security.test.ts`: 24-point security test suite covering all Part H security scenarios against live PostgreSQL container.
+  - `docs/security/TENANT_ACCESS_MODEL.md`: Authoritative security specification and access model architecture.
+  - `docs/DECISIONS.md`: Added ADR-021.
+- **Stage 05 Exit Gate Assessment**:
+  - Discriminated `TrustedTenantContext` union enforced: **PASSED**
+  - 3 authentication entry paths + worker run resolver implemented: **PASSED**
+  - Tenant-scoped repositories cover all 15 domains: **PASSED**
+  - Least-privilege `agentflow_app` RLS transactions with pool safety: **PASSED**
+  - RBAC integration with `@agentflow/auth` permissions: **PASSED**
+  - Monorepo boundary rules verified without leakage into browser apps: **PASSED**
+  - 24/24 security scenarios verified against real PostgreSQL: **PASSED**
+  - Result: **PASSED**
+
 

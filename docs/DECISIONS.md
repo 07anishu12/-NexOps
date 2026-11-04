@@ -29,6 +29,7 @@
 - [ADR-018: Public Repository License and Contribution Policy](#adr-018-public-repository-license-and-contribution-policy)
 - [ADR-019: Architectural Dependency Boundaries and Browser Isolation](#adr-019-architectural-dependency-boundaries-and-browser-isolation)
 - [ADR-020: Local Infrastructure and Stage Sequencing](#adr-020-local-infrastructure-and-stage-sequencing)
+- [ADR-021: Database Access Layer, Discriminated Tenant Context, and RLS Hardening](#adr-021-database-access-layer-discriminated-tenant-context-and-rls-hardening)
 
 ---
 
@@ -404,3 +405,26 @@ The approved application boundaries are five independent deployables (`apps/web`
 
 ### Migration Path
 Stage 04 can add Drizzle migrations and schema readiness checks using `DATABASE_URL` without changing the Compose service names, volumes or environment contract.
+
+---
+
+## ADR-021: Database Access Layer, Discriminated Tenant Context, and RLS Hardening
+
+### Context
+Stage 04 established the PostgreSQL 16.4 schema, 44 RLS policies, and append-only triggers. However, backend applications (`apps/api`, `apps/worker`) require a hardened, typed data access layer that makes it difficult for application developers to accidentally perform an unscoped query or accept unverified tenant parameters from untrusted clients. Tenant identity must be anchored exclusively to verified credentials across browser sessions, server API keys, public widget deployment tokens, and durable worker run leases.
+
+### Decision
+1. **Discriminated Tenant Context (`TrustedTenantContext`)**: Define a strict union covering `WorkspaceUserContext`, `ApiKeyContext`, `WidgetSessionContext`, `WorkerContext`, and `SystemContext`. Every context constructor validates UUIDs and rejects fabricated claims.
+2. **Four Authentication Resolvers**:
+   - `resolveSessionContext`: Validates session token hash, verifies expiry/revocation, resolves user, and checks active workspace membership.
+   - `resolveApiKeyContext`: Extracts bearer token, performs constant-time SHA-256 hash match (`crypto.timingSafeEqual`), validates active status, expiry, and scopes.
+   - `resolveWidgetSessionContext`: Verifies session token, checks active deployment status, and strictly validates the caller's origin against `deployment_origins` where `status = 'verified'`.
+   - `resolveWorkerContext`: Resolves workspace ownership directly from the durable PostgreSQL `runs` row (`runs.workspaceId`), ignoring queue payload claims.
+3. **Tenant-Scoped Repositories**: Encapsulate all database queries in 15 typed repositories extending `BaseRepository.withScopedTransaction()`. Repositories assert `@agentflow/auth` permissions and execute under `SET LOCAL ROLE agentflow_app` and transaction-local `SET LOCAL app.current_workspace_id`.
+4. **Connection Pool Safety**: Enforce `is_local = true` on `set_config('app.current_workspace_id', ..., true)` ensuring that PostgreSQL automatically clears tenant variables upon transaction completion with zero pool leakage.
+
+### Consequences
+- Unscoped database queries are impossible through the repository layer.
+- Unauthenticated or forged tenant requests fail closed before hitting database records.
+- 24-point security integration test suite verifies isolation across all domains and entry paths.
+

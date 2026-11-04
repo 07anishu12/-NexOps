@@ -105,10 +105,23 @@ Queue payloads never dictate workspace ownership.
 
 ## 6. Tenant Isolation Test Suite
 
-Integration tests in `packages/database/tests/database-integration.test.ts` verify:
+Integration tests in `packages/database/tests/database-integration.test.ts` and `packages/database/tests/database-access-security.test.ts` verify:
 1. **Cross-Tenant Read**: Workspace Alpha cannot read Beta's records.
 2. **Guessed ID Protection**: Direct `WHERE id = $betaId` queries under Alpha context return 0 rows.
 3. **Cross-Tenant Write**: Alpha `UPDATE` or `DELETE` targeting Beta IDs affects 0 rows.
 4. **Fail Closed**: Queries with unconfigured or empty `app.current_workspace_id` return 0 rows.
 5. **Composite FK Enforcement**: Insertion of mismatched workspace/parent IDs fails foreign key checks.
 6. **Pool Bleed Prevention**: Consecutive transactions alternating workspaces do not retain prior state.
+7. **24-Point Access Security Suite**: Covers session revocation/expiry (401), membership authorization (403), API key constant-time hashing, scope enforcement, widget origin verification, worker durable run anchoring, and rollback guarantees.
+
+---
+
+## 7. Programmatic Data Access Layer & Repositories
+
+See [`docs/security/TENANT_ACCESS_MODEL.md`](file:///Users/anny/Desktop/NexOps/docs/security/TENANT_ACCESS_MODEL.md) for full architecture specifications.
+
+### 7.1 Discriminated Context Architecture
+Data access operations require a verified instance of `TrustedTenantContext` (`WorkspaceUserContext`, `ApiKeyContext`, `WidgetSessionContext`, `WorkerContext`, `SystemContext`).
+
+### 7.2 Typed Repositories
+Domain operations are encapsulated in 15 tenant-scoped repositories (`WorkspaceRepository`, `AgentRepository`, `DeploymentRepository`, `ConversationRepository`, `RunRepository`, `ApprovalRepository`, `IntegrationRepository`, `BillingRepository`, `PaymentRepository`, `KnowledgeRepository`, `WebhookRepository`, `FdeRepository`, `AuditRepository`, `ToolRepository`) instantiated via `createRepositories(client)`. All operations invoke `withScopedTransaction` enforcing `SET LOCAL ROLE agentflow_app` and transaction-local `app.current_workspace_id`.

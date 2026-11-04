@@ -1,13 +1,5 @@
 ## Latest Implementation Changes
 
-### Change 04
-- Stage: 01–03 verification
-- Summary: Added app Dockerfiles/start paths, root `.env` loading, CI infrastructure tests, docs and ADR updates.
-- Files: `apps/*/Dockerfile`, docs, `packages/config`, CI
-- Validation: Install, build, typecheck, lint, full tests, architecture tests, and 5 app builds passed.
-- Blockers: None. Repository-wide format drift documented.
-- Next step: PostgreSQL migration baseline.
-
 ### Change 05
 - Stage: 03 live verification
 - Summary: Corrected MinIO image references and verified live local infrastructure startup.
@@ -31,3 +23,11 @@
 - Validation: `db:migrate`, `db:status`, `db:check`, `db:seed`, 27 unit/integration tests, full monorepo typecheck, lint, architecture tests, and 5 independent app builds passed.
 - Blockers: None.
 - Next step: Stage 05 — Authentication and workspace management.
+
+### Change 08
+- Stage: 05 database access layer & RLS hardening
+- Summary: Implemented discriminated TrustedTenantContext, 4 verified auth resolvers, 15 typed tenant-scoped repositories, timing-safe API key matching, and 24-point security test suite under restricted agentflow_app role.
+- Files: `packages/database/src/*`, `packages/auth/src/api-keys.ts`, `docs/security/TENANT_ACCESS_MODEL.md`, `tests/*`
+- Validation: 51/51 database tests passed (5 unit, 22 integration, 24 access security), architecture checks passed, monorepo typecheck/lint/tests passed.
+- Blockers: None.
+- Next step: Stage 06 control plane design system and UI shell.

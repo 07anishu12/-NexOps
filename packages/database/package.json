@@ -25,6 +25,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@agentflow/auth": "workspace:*",
     "@agentflow/config": "workspace:*",
     "@agentflow/contracts": "workspace:*",
     "drizzle-orm": "^0.39.3",

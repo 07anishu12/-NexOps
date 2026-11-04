@@ -52,6 +52,9 @@ SET session_replication_role = 'origin';
 COMMIT;
 ```
 
+### 1.6 Data Access Layer and Tenant Access Model
+All database operations pass through the programmatic data access layer in `@agentflow/database` with typed domain repositories (`createRepositories(client)`). Repositories enforce discriminated `TrustedTenantContext` resolution, role/scope permission checks, and transaction-local `agentflow_app` execution with Row-Level Security. See [`docs/security/TENANT_ACCESS_MODEL.md`](file:///Users/anny/Desktop/NexOps/docs/security/TENANT_ACCESS_MODEL.md) and [`docs/database/TENANCY.md`](file:///Users/anny/Desktop/NexOps/docs/database/TENANCY.md).
+
 ---
 
 ## 2. Table Inventory (48 Tables)

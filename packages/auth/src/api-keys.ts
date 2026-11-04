@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 
 export interface GeneratedApiKey {
   plaintextKey: string;
@@ -28,5 +28,8 @@ export function hashApiKey(key: string): string {
 
 export function verifyApiKey(plaintextKey: string, storedHash: string): boolean {
   const computed = hashApiKey(plaintextKey);
-  return computed === storedHash;
+  const bufA = Buffer.from(computed, 'utf8');
+  const bufB = Buffer.from(storedHash, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
 }

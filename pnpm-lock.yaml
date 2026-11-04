@@ -373,6 +373,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@agentflow/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@agentflow/config':
         specifier: workspace:*
         version: link:../config
