@@ -11,7 +11,7 @@
 
 | Total Stages | Passed | In Progress | Blocked | Not Started | Needs Rework |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| 40 | 3 | 0 | 0 | 37 | 0 |
+| 40 | 4 | 0 | 0 | 36 | 0 |
 
 ---
 
@@ -22,7 +22,7 @@
 | **Stage 00: Repository reconnaissance, feasibility and build ledger** | `passed` | `init-stage-00` | `docs/REPO_AUDIT.md`, `docs/DECISIONS.md`, `docs/BUILD_LEDGER.md` | Verification of Node `v26.13.0`, pnpm `12.8.1`, Git `2.56.0`, directory audit, PRD validation | PASSED | None | Stage 01 |
 | **Stage 01: Monorepo foundation and independent deployables** | `passed` | `stage-01` | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `apps/*`, `packages/*`, `.github/workflows/ci.yml`, `README.md` | `pnpm install`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` across all 17 workspaces | PASSED | None | Stage 02 |
 | **Stage 02: Typed contracts, architecture rules & dependency boundaries** | `passed` | `stage-02` | `packages/contracts/src/*`, `packages/contracts/tests/*`, `tests/architecture/dependency-rules.test.ts`, `docs/DECISIONS.md` | `pnpm test:architecture`, `pnpm --filter @agentflow/contracts test`, `pnpm typecheck`, `pnpm lint` | PASSED | None | Stage 03 |
-| **Stage 03: PostgreSQL schema, Drizzle migrations, and tenant isolation** | `not_started` | — | `packages/database/*`, `drizzle.config.ts`, `migrations/*` | Migration execution test, RLS tenant isolation tests | Pending | Requires Stage 02, local PostgreSQL instance | Stage 04 |
+| **Stage 03: PostgreSQL schema, Drizzle migrations, and tenant isolation** | `passed` | `stage-04-database` | `packages/database/*`, `drizzle.config.ts`, `migrations/*`, `docs/database/*` | `db:migrate`, `db:status`, `db:check`, `db:seed`, 27 unit & integration tests (`database.test.ts`, `database-integration.test.ts`), RLS verification, append-only triggers | PASSED | None | Stage 04 |
 | **Stage 04: Authentication, OAuth and session management** | `not_started` | — | `packages/auth/*`, `apps/web/app/(auth)/*` | Auth state machine tests, OAuth callback mock tests | Pending | Requires Stage 03, Google OAuth credentials for live test | Stage 05 |
 | **Stage 05: Workspace management, RBAC and audit logging** | `not_started` | — | `packages/domain/workspace/*`, `packages/database/schema/audit.ts` | Multi-tenant RBAC tests, audit event persistence tests | Pending | Requires Stage 04 | Stage 06 |
 | **Stage 06: Control plane design system and navigation shell** | `not_started` | — | `apps/web/*`, `packages/ui/*` | Component visual smoke tests, route layout render tests | Pending | Requires Stage 05 | Stage 07 |
@@ -134,5 +134,105 @@
   - Contracts typed and documented: **PASSED**
   - Dependency rules run in CI: **PASSED** (`pnpm test:architecture` added to CI workflow)
   - API contract tests validate envelopes: **PASSED**
-  - No secret-bearing module is browser reachable: **PASSED**
+   - No secret-bearing module is browser reachable: **PASSED**
+   - Result: **PASSED**
+
+---
+
+## Prompt 03 Execution Overlay
+
+The existing 40-stage product roadmap names PostgreSQL schema work as Stage 03. The current delivery prompt explicitly sequences local infrastructure as Stage 03 and PostgreSQL schema work as the next stage. This overlay records the prompt sequence without silently renumbering the historical product roadmap; the conflict and selected approach are recorded in ADR-020.
+
+| Prompt stage | Status | Evidence | Blockers | Next step |
+| :--- | :--- | :--- | :--- | :--- |
+| Stage 01 — foundation audit | `passed` | Frozen install, root checks, independent app builds and workspace/manifest audit | None | Stage 02 |
+| Stage 02 — contracts and dependency rules audit | `passed` | Contract tests, stricter architecture tests, CI architecture job and package export audit | None | Stage 03 |
+| Stage 03 — local infrastructure and developer environment | `passed` | Compose static validation, setup/reset/readiness safety tests, scripts/docs, and live PostgreSQL/Redis/MinIO verification | None for local development; compatibility image maintenance is a documented limitation | Stage 04 |
+| Stage 04 — PostgreSQL schema and Drizzle migration baseline | `passed` | 48 tables, 44 RLS policies, 33 enums, journaled migrations, idempotent seed, 27 tests passed | None | Stage 05 (Auth & OAuth) |
+
+### Prompt Stage 01 Audit Result
+
+- **PASS** — pnpm workspace membership, lockfile consistency, Turborepo build order, strict TypeScript, CI scripts and all 17 workspace manifests verified.
+- **PASS** — `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` and `pnpm test:architecture` completed successfully in this audit.
+- **PASS** — all five applications have independent package/build/start paths and do not import sibling application source directories.
+- **PASS** — twelve shared packages expose explicit package exports and resolve through workspace package names.
+- **FAIL corrected** — workspace lint scripts previously ended with `|| true`, which could hide ESLint failures; all workspace lint scripts now fail on errors.
+- **NOT APPLICABLE** — no approved architecture image was available in the repository; boundaries were verified against the PRD and existing ADRs.
+
+### Prompt Stage 02 Audit Result
+
+- **PASS** — runtime-validated Zod schemas cover identifiers, timestamps, pagination, idempotency, tracing, API request/response envelopes and versioned event envelopes.
+- **PASS** — negative tests cover invalid request bodies, identifiers, required fields, unsupported event versions, malformed pagination, invalid timestamps and missing correlation identifiers.
+- **PASS** — browser source scans prohibit server-only/database/secret-bearing imports, cross-application relative imports are rejected, package dependency cycles are rejected, and every shared package must expose an entrypoint.
+- **PASS** — architecture enforcement runs in CI through `pnpm test:architecture`.
+- **FAIL corrected** — browser-facing `apps/web` declared unused server-only packages; those declarations were removed and the rule was widened to cover all server-only package names and dynamic imports.
+
+### Prompt Stage 03 Implementation Evidence
+
+- **Compose**: `docker-compose.yml` adds pinned PostgreSQL, Redis and MinIO-compatible services, named volumes, a dedicated network, restart policies, loopback-only ports, health checks, health-based dependency ordering and idempotent bucket initialization. Live verification found the upstream `minio/minio` and `minio/mc` Docker repositories unavailable; pinned `bitnamilegacy` images are used instead and recorded in ADR-020.
+- **Configuration**: `.env.example` now includes application, PostgreSQL, Redis, object-storage and security variables. `pnpm dev:setup` generates local-only values only when `.env` is absent.
+- **Tooling**: `pnpm infra:up`, `infra:down`, `infra:status`, `infra:logs`, `infra:wait` and protected `pnpm dev:reset --confirm` are implemented with bounded retries and secret redaction.
+- **Validation**: server/browser environment schemas reject malformed URLs and credentials without printing values. Provider credentials remain optional for local infrastructure.
+- **Documentation**: root quickstart/troubleshooting and `docs/LOCAL_DEVELOPMENT.md` describe executable commands, ports, connections, reset behavior and the Stage 04 migration handoff.
+- **Tests**: infrastructure safety tests cover Compose shape, static Compose validation, environment parsing/redaction, reset environment protection and bounded readiness retry/timeout behavior.
+- **Live health**: **PASSED** after starting Docker Desktop. `pnpm infra:up` reported PostgreSQL, Redis and MinIO/bucket ready; `pnpm infra:wait` repeated all checks successfully; `infra:status` showed all three containers healthy; direct probes returned PostgreSQL accepting connections, Redis `PONG` and MinIO live health.
+
+### Prompt 03 Verification Log
+
+- `pnpm install --frozen-lockfile` — **PASS**, pnpm 12.8.1 and lockfile accepted.
+- `pnpm build` — **PASS**, 17 workspace builds succeeded.
+- `pnpm typecheck` — **PASS**, 26 Turborepo tasks succeeded.
+- `pnpm lint` — **PASS**, 26 Turborepo tasks succeeded with lint failures no longer swallowed.
+- `pnpm test` — **PASS**, 26 workspace tasks plus 5 infrastructure tests succeeded.
+- `pnpm test:architecture` — **PASS**, 6 architecture tests succeeded.
+- Independent builds — **PASS**: `@agentflow/web`, `@agentflow/api`, `@agentflow/worker`, `@agentflow/widget`, and `@agentflow/docs` each built successfully.
+- `docker compose -f docker-compose.yml config --quiet` — **PASS**.
+- `pnpm dev:setup` — **PASS**, generated `.env` with secret values suppressed; existing `.env` preservation is covered by the script path.
+- `pnpm dev:reset` without `--confirm` — **PASS**, refused to delete local volumes and printed the warning.
+- Initial live `pnpm infra:up` — **FAIL**, the first upstream `minio/mc` tag was unavailable. The tag was replaced with verified pinned `bitnamilegacy` MinIO-compatible images and the command was rerun successfully.
+- `pnpm format:check` — **FAIL**, reports 88 repository-wide formatting issues outside this focused implementation; no broad formatting rewrite was applied.
+
+### Prompt 03 Infrastructure Health Result
+
+| Probe | Result |
+| :--- | :--- |
+| PostgreSQL container health / `pg_isready` | PASS — accepting connections |
+| Redis container health / `redis-cli ping` | PASS — `PONG` |
+| MinIO container health / `/minio/health/live` | PASS — healthy |
+| Expected bucket initialization | PASS — `mc mb --ignore-existing` and `mc stat` |
+| Storage credential verification | PASS — `mc` authenticated against the configured endpoint |
+| Port exposure | PASS — all published ports bound to `127.0.0.1` |
+
+---
+
+## Prompt 04 Execution Evidence (Stage 04 — Database Foundation & Migrations)
+
+- **Timestamp**: 2026-11-04T08:57:00+05:30
+- **Commands Executed**:
+  1. `pnpm --filter @agentflow/database db:migrate` -> Successfully applied migration journal (`0000_productive_exiles.sql` and `0001_tenant_security.sql`).
+  2. `pnpm --filter @agentflow/database db:status` -> Cleanly outputs migration ID, UTC timestamp, and SHA-256 hash.
+  3. `pnpm --filter @agentflow/database db:check` -> Validated 48 public tables and 44 RLS-enabled tables.
+  4. `pnpm --filter @agentflow/database db:seed` -> Seeded synthetic user, workspace, member, agent, tool, and credit account idempotently.
+  5. `pnpm --filter @agentflow/database test` -> 27/27 unit and live integration tests passed across schema integrity, RLS tenant isolation, immutability triggers, financial idempotency, and context reset.
+  6. `pnpm typecheck` -> 26 Turborepo tasks passed with 0 type errors.
+  7. `pnpm lint` -> 26 Turborepo tasks passed with 0 warnings/errors.
+  8. `pnpm test` -> All 26 workspace test suites plus infrastructure tests passed.
+  9. `pnpm test:architecture` -> All 6 architecture dependency rules passed.
+  10. Independent application builds (`apps/web`, `apps/api`, `apps/worker`, `apps/widget`, `apps/docs`) all succeeded.
+- **Output Artifacts**:
+  - `packages/database/src/schema/relations.ts`: Drizzle typed relations across all 48 tables.
+  - `packages/database/migrations/meta/_journal.json`: Journaled migrations with entry 0 and 1.
+  - `packages/database/migrations/0001_tenant_security.sql`: RLS enablement, `agentflow_app` role grant, isolation policies, and append-only triggers.
+  - `packages/database/src/tenant-context.ts`: Hardened context with `withWorkspaceAppTransaction` and `resetWorkspaceContext`.
+  - `packages/database/tests/database-integration.test.ts`: 22 live integration tests validating schema, RLS, triggers, and idempotency.
+  - `docs/database/SCHEMA.md`, `ERD.md`, `TENANCY.md`, `MIGRATIONS.md`, `SCHEMA_MAP.md`.
+- **Stage 04 Exit Gate Assessment**:
+  - 48 required domain tables exist: **PASSED**
+  - Drizzle schemas match actual migrations: **PASSED**
+  - Composite foreign keys and tenant isolation enforced: **PASSED**
+  - RLS enforced under `agentflow_app` restricted role: **PASSED**
+  - Append-only immutability safeguards active: **PASSED**
+  - Clean migration journal and status reporting: **PASSED**
+  - Idempotent and safe development seeding: **PASSED**
   - Result: **PASSED**
+

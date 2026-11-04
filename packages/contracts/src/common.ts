@@ -12,23 +12,30 @@ export const PaginationQuerySchema = z.object({
 export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
 
 export const ApiResponseEnvelopeSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
-  z.object({
-    success: z.boolean(),
-    data: dataSchema.optional(),
-    error: z
-      .object({
-        code: z.string(),
-        message: z.string(),
-        details: z.record(z.unknown()).optional()
-      })
-      .optional(),
-    meta: z
-      .object({
+  z.union([
+    z.object({
+      success: z.literal(true),
+      data: dataSchema,
+      meta: z.object({
         timestamp: TimestampSchema,
-        requestId: z.string()
+        requestId: z.string().min(1),
+        correlationId: z.string().min(1)
       })
-      .optional()
-  });
+    }),
+    z.object({
+      success: z.literal(false),
+      error: z.object({
+        code: z.string().min(1),
+        message: z.string().min(1),
+        details: z.record(z.unknown()).optional()
+      }),
+      meta: z.object({
+        timestamp: TimestampSchema,
+        requestId: z.string().min(1),
+        correlationId: z.string().min(1)
+      })
+    })
+  ]);
 
 export type ApiResponseEnvelope<T> = {
   success: boolean;
@@ -41,5 +48,6 @@ export type ApiResponseEnvelope<T> = {
   meta?: {
     timestamp: string;
     requestId: string;
+    correlationId: string;
   };
 };

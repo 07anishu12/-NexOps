@@ -1,0 +1,102 @@
+name: agentflow-local
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agentflow_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-agentflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentflow_secret}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agentflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7.4.1-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1"
+      - --maxmemory
+      - ${REDIS_MAX_MEMORY:-256mb}
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - agentflow
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: bitnamilegacy/minio:2024.10.29
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:-agentflowlocal}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:-agentflowlocal-secret}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/bitnami/minio/data
+    networks:
+      - agentflow
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  minio-init:
+    image: bitnamilegacy/minio-client:2024.10.29
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:-agentflowlocal}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:-agentflowlocal-secret}
+      MINIO_BUCKET: ${OBJECT_STORAGE_BUCKET:-agentflow-assets}
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      attempt=0; until [ "$${attempt}" -ge 12 ]; do
+      /opt/bitnami/minio-client/bin/mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+      /opt/bitnami/minio-client/bin/mc mb --ignore-existing "local/$${MINIO_BUCKET}" &&
+      /opt/bitnami/minio-client/bin/mc stat "local/$${MINIO_BUCKET}" && exit 0;
+      attempt=$$((attempt + 1)); sleep 2;
+      done; echo "MinIO bucket initialization failed after 12 attempts" >&2; exit 1
+    networks:
+      - agentflow
+
+networks:
+  agentflow:
+    name: agentflow-local
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: agentflow-postgres-data
+  redis_data:
+    name: agentflow-redis-data
+  minio_data:
+    name: agentflow-minio-data

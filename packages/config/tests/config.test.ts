@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadConfig, EnvSchema } from '../src/index.js';
+import { loadBrowserConfig, loadConfig, loadServerConfig, EnvSchema } from '../src/index.js';
 
 describe('Config Package Tests', () => {
   it('loads valid default development configuration', () => {
@@ -45,5 +45,46 @@ describe('Config Package Tests', () => {
     if (parsed.success) {
       expect(parsed.data.DEFAULT_MODEL_PROVIDER).toBe('gemini');
     }
+  });
+
+  it('rejects missing server variables when strict startup validation is requested', () => {
+    expect(() => loadServerConfig({ NODE_ENV: 'development' })).toThrow(
+      /POSTGRES_PASSWORD.*Required server environment variable is missing/
+    );
+  });
+
+  it('rejects malformed database and Redis connection URLs', () => {
+    expect(() => loadConfig({ DATABASE_URL: 'not-a-database-url' })).toThrow(/DATABASE_URL/);
+    expect(() => loadConfig({ REDIS_URL: 'https://localhost:6379' })).toThrow(/REDIS_URL/);
+  });
+
+  it('rejects malformed object-storage credentials without exposing their values', () => {
+    const secret = 'visible-only-in-test-input';
+    let error = '';
+    try {
+      loadConfig({ OBJECT_STORAGE_SECRET_KEY: 'short', SESSION_SECRET: secret });
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : String(caught);
+    }
+
+    expect(error).toMatch(/OBJECT_STORAGE_SECRET_KEY/);
+    expect(error).not.toContain(secret);
+  });
+
+  it('exposes only non-secret values through browser configuration', () => {
+    const browserConfig = loadBrowserConfig({
+      APP_URL: 'http://localhost:3000',
+      API_BASE_URL: 'http://localhost:4000',
+      WIDGET_CDN_URL: 'http://localhost:3002'
+    });
+
+    expect(browserConfig).toEqual({
+      NODE_ENV: 'development',
+      APP_URL: 'http://localhost:3000',
+      API_BASE_URL: 'http://localhost:4000',
+      WIDGET_CDN_URL: 'http://localhost:3002'
+    });
+    expect(browserConfig).not.toHaveProperty('SESSION_SECRET');
+    expect(browserConfig).not.toHaveProperty('DATABASE_URL');
   });
 });

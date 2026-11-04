@@ -8,3 +8,5 @@ export * from './idempotency.js';
 export * from './tracing.js';
 export * from './errors.js';
 export * from './pagination.js';
+export * from './api.js';
+export * from './events.js';

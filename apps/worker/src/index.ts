@@ -1,10 +1,10 @@
 import { createWorkerHealthServer } from './health.js';
 import { RunJobProcessor } from './processor.js';
 import { createLogger } from '@agentflow/observability';
-import { loadConfig } from '@agentflow/config';
+import { loadApplicationConfig } from '@agentflow/config';
 
 const logger = createLogger('worker-service');
-const config = loadConfig();
+const config = loadApplicationConfig();
 const HEALTH_PORT = 4001;
 
 const processor = new RunJobProcessor();

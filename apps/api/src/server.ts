@@ -1,9 +1,9 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { createLogger } from '@agentflow/observability';
-import { loadConfig } from '@agentflow/config';
+import { loadApplicationConfig } from '@agentflow/config';
 
 const logger = createLogger('api-service');
-const config = loadConfig();
+const config = loadApplicationConfig();
 
 export function createApiServer() {
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {

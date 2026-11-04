@@ -46,21 +46,3 @@ export const CreditLedgerEntrySchema = z.object({
   createdAt: TimestampSchema
 });
 export type CreditLedgerEntry = z.infer<typeof CreditLedgerEntrySchema>;
-
-export const EventEnvelopeSchema = z.object({
-  id: IdSchema,
-  runId: IdSchema,
-  workspaceId: IdSchema,
-  type: z.enum([
-    'run.started',
-    'run.step',
-    'run.token',
-    'run.approval_required',
-    'run.completed',
-    'run.failed'
-  ]),
-  sequence: z.number().int().nonnegative(),
-  timestamp: TimestampSchema,
-  data: z.record(z.unknown())
-});
-export type EventEnvelope = z.infer<typeof EventEnvelopeSchema>;

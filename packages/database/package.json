@@ -14,17 +14,25 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings=0 || true",
+    "lint": "eslint src/ --max-warnings=0",
     "test": "vitest run",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:status": "node scripts/db-status.mjs",
+    "db:check": "node scripts/db-check.mjs",
+    "db:seed": "node scripts/db-seed.mjs",
+    "db:rollback": "node scripts/db-rollback.mjs",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@agentflow/config": "workspace:*",
     "@agentflow/contracts": "workspace:*",
-    "drizzle-orm": "^0.39.3"
+    "drizzle-orm": "^0.39.3",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.4",
+    "@types/pg": "^8.11.10",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   }

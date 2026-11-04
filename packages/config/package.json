@@ -9,12 +9,16 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
     }
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings=0 || true",
+    "lint": "eslint src/ --max-warnings=0",
     "test": "vitest run",
     "clean": "rm -rf dist"
   },

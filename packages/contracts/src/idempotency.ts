@@ -17,7 +17,10 @@ export const IdempotencyRecordSchema = z.object({
   key: IdempotencyKeySchema,
   workspaceId: IdSchema,
   operationId: z.string().min(1),
-  requestHash: z.string().length(64, 'Request hash must be 64-char SHA-256 hex'),
+  requestHash: z
+    .string()
+    .length(64, 'Request hash must be 64-char SHA-256 hex')
+    .regex(/^[0-9a-f]{64}$/, 'Request hash must be lowercase SHA-256 hex'),
   status: IdempotencyStatusSchema,
   statusCode: z.number().int().min(100).max(599).optional(),
   responseBody: z.record(z.unknown()).optional(),

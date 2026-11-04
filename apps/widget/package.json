@@ -6,8 +6,9 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc --project tsconfig.json",
+    "start": "node scripts/serve-widget.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings=0 || true",
+    "lint": "eslint src/ --max-warnings=0",
     "test": "vitest run",
     "clean": "rm -rf dist"
   },

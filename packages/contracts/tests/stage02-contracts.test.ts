@@ -14,7 +14,12 @@ import {
   PaginationParamsSchema,
   createPaginationMeta,
   PaginatedResultSchema,
-  UserSchema
+  UserSchema,
+  ApiRequestContextSchema,
+  ApiResponseEnvelopeSchema,
+  CreateAgentRequestSchema,
+  CreateRunRequestSchema,
+  EventEnvelopeSchema
 } from '../src/index.js';
 
 describe('Stage 02 Contracts & Architecture Primitives', () => {
@@ -52,6 +57,20 @@ describe('Stage 02 Contracts & Architecture Primitives', () => {
         expiresAt: new Date(Date.now() + 86400000).toISOString()
       };
       expect(IdempotencyRecordSchema.parse(record).status).toBe('completed');
+    });
+
+    it('rejects duplicate-key records represented by a conflicting request hash', () => {
+      const record = {
+        key: 'idem_long_key_1234567890',
+        workspaceId: '11111111-1111-4111-a111-111111111111',
+        operationId: 'op-001',
+        requestHash: 'not-a-sha256-hash',
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 86400000).toISOString()
+      };
+
+      expect(() => IdempotencyRecordSchema.parse(record)).toThrow();
     });
   });
 
@@ -143,6 +162,54 @@ describe('Stage 02 Contracts & Architecture Primitives', () => {
         pagination: createPaginationMeta({ page: 1, limit: 10, totalItems: 1 })
       };
       expect(schema.parse(data).items).toHaveLength(1);
+    });
+
+    it('rejects malformed pagination and timestamps', () => {
+      expect(() => PaginationParamsSchema.parse({ page: 0, limit: 101 })).toThrow();
+      expect(() => UserSchema.parse({
+        id: '11111111-1111-4111-a111-111111111111',
+        email: 'admin@agentflow.io',
+        name: 'Admin',
+        createdAt: 'yesterday',
+        updatedAt: new Date().toISOString()
+      })).toThrow();
+    });
+
+    it('requires correlation identifiers and validates API request DTOs', () => {
+      expect(() => ApiRequestContextSchema.parse({ requestId: 'req-1' })).toThrow();
+      expect(() => CreateAgentRequestSchema.parse({ name: 'Agent' })).toThrow();
+      expect(() => CreateRunRequestSchema.parse({
+        agentId: 'not-a-uuid',
+        inputPrompt: 'hello',
+        idempotencyKey: 'short'
+      })).toThrow();
+
+      const successEnvelope = ApiResponseEnvelopeSchema(CreateAgentRequestSchema).parse({
+        success: true,
+        data: { name: 'Agent', systemPrompt: 'Be helpful' },
+        meta: {
+          requestId: 'req-1',
+          correlationId: 'corr-1',
+          timestamp: new Date().toISOString()
+        }
+      });
+      expect(successEnvelope.success).toBe(true);
+    });
+
+    it('rejects unsupported event versions and missing correlation identifiers', () => {
+      const event = {
+        version: 2,
+        id: '11111111-1111-4111-a111-111111111111',
+        workspaceId: '22222222-2222-4222-a222-222222222222',
+        runId: '44444444-4444-4444-a444-444444444444',
+        type: 'run.started',
+        sequence: 1,
+        timestamp: new Date().toISOString(),
+        data: {}
+      };
+
+      expect(() => EventEnvelopeSchema.parse(event)).toThrow();
+      expect(() => EventEnvelopeSchema.parse({ ...event, version: 1 })).toThrow();
     });
   });
 });

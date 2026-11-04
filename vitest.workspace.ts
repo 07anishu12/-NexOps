@@ -6,7 +6,13 @@ export default defineWorkspace([
   {
     test: {
       name: 'architecture',
-      include: ['tests/**/*.test.ts']
+      include: ['tests/architecture/**/*.test.ts']
+    }
+  },
+  {
+    test: {
+      name: 'infrastructure',
+      include: ['tests/infrastructure/**/*.test.ts']
     }
   }
 ]);

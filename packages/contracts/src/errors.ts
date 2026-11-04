@@ -34,6 +34,7 @@ export const ApiErrorEnvelopeSchema = z.object({
   }),
   meta: z.object({
     requestId: z.string(),
+    correlationId: z.string().min(1),
     timestamp: TimestampSchema,
     traceId: z.string().optional()
   })
@@ -45,6 +46,7 @@ export function createApiErrorEnvelope(params: {
   code: ErrorCode;
   message: string;
   requestId: string;
+  correlationId?: string;
   details?: FieldErrorDetail[];
   traceId?: string;
   helpUrl?: string;
@@ -59,6 +61,7 @@ export function createApiErrorEnvelope(params: {
     },
     meta: {
       requestId: params.requestId,
+      correlationId: params.correlationId ?? params.requestId,
       timestamp: new Date().toISOString(),
       traceId: params.traceId
     }

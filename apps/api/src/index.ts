@@ -1,9 +1,9 @@
 import { createApiServer } from './server.js';
 import { createLogger } from '@agentflow/observability';
-import { loadConfig } from '@agentflow/config';
+import { loadApplicationConfig } from '@agentflow/config';
 
 const logger = createLogger('api-service');
-const config = loadConfig();
+const config = loadApplicationConfig();
 const PORT = 4000;
 
 const server = createApiServer();

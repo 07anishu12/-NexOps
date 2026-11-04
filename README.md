@@ -79,7 +79,7 @@ Every application in `apps/` is independently buildable, testable, and deployabl
 ### Prerequisites
 - **Node.js**: `>= 20.x` (Recommended: `v22.x` or `v26.x`)
 - **pnpm**: `>= 9.x` (Host verified: `12.8.1`)
-- **Docker**: (For local PostgreSQL and Redis dependencies)
+- **Docker Desktop** (or a compatible Docker Engine with Compose v2): for PostgreSQL, Redis and MinIO
 
 ### Quickstart
 
@@ -90,30 +90,42 @@ Every application in `apps/` is independently buildable, testable, and deployabl
    ```
 
 2. **Install dependencies**:
-   ```bash
-   pnpm install
-   ```
+    ```bash
+   pnpm install --frozen-lockfile
+    ```
 
-3. **Configure environment variables**:
-   ```bash
-   cp .env.example .env
-   ```
+3. **Create a local environment** (generates unique local-only secrets and never overwrites an existing `.env`):
+    ```bash
+   pnpm dev:setup
+    ```
 
-4. **Run build across all packages and apps**:
-   ```bash
+4. **Start and verify PostgreSQL, Redis and MinIO**:
+    ```bash
+   pnpm infra:up
+    ```
+
+   MinIO is available at http://localhost:9001 and the `agentflow-assets` bucket is created idempotently.
+
+5. **Apply database migrations and seed synthetic development data**:
+    ```bash
+   pnpm --filter @agentflow/database db:migrate
+   pnpm --filter @agentflow/database db:seed
+   pnpm --filter @agentflow/database db:check
+    ```
+
+6. **Build all packages and apps**:
+    ```bash
    pnpm build
-   ```
+    ```
 
-5. **Run test suite**:
-   ```bash
+7. **Run the quality checks**:
+    ```bash
    pnpm test
-   ```
-
-6. **Run typechecking and linting**:
-   ```bash
    pnpm typecheck
    pnpm lint
    ```
+
+See [`docs/LOCAL_DEVELOPMENT.md`](docs/LOCAL_DEVELOPMENT.md) for service details and troubleshooting.
 
 ---
 
@@ -133,11 +145,40 @@ pnpm --filter @agentflow/worker start
 
 # Run unit tests only for shared contracts
 pnpm --filter @agentflow/contracts test
+
+# Inspect or stop local infrastructure
+pnpm infra:status
+pnpm infra:logs
+pnpm infra:down
+
+# Delete local infrastructure data only with explicit confirmation
+pnpm dev:reset --confirm
 ```
+
+### Starting applications
+
+After `pnpm build`, start deployables independently in separate terminals:
+
+```bash
+pnpm --filter @agentflow/web dev
+pnpm --filter @agentflow/api start
+pnpm --filter @agentflow/worker start
+pnpm --filter @agentflow/docs start
+pnpm --filter @agentflow/widget start
+```
+
+The widget is built as a standalone bundle with `pnpm --filter @agentflow/widget build` and can be previewed at `http://localhost:3002/agentflow-widget.js`.
+
+## 6. Troubleshooting
+
+- **Docker unavailable**: start Docker Desktop, then run `pnpm infra:wait`. The scripts report daemon and port failures without printing credentials.
+- **Port occupied**: change `POSTGRES_PORT`, `REDIS_PORT`, `MINIO_API_PORT` or `MINIO_CONSOLE_PORT` in `.env`, then recreate the services with `pnpm infra:down` and `pnpm infra:up`.
+- **Bucket missing**: run `pnpm infra:wait`; bucket initialization is safe to repeat.
+- **Fresh local data**: use `pnpm dev:reset --confirm`. This is restricted to `development` and `test` environments and removes named volumes.
 
 ---
 
-## 6. Architecture Decisions & Implementation Ledger
+## 7. Architecture Decisions & Implementation Ledger
 
 - **Architecture Decision Records**: Consult [`docs/DECISIONS.md`](docs/DECISIONS.md) for ADR-001 through ADR-018 covering tenancy, immutability, queues, policy, approvals, and secrets.
 - **Master Build Ledger**: Track stage-by-stage implementation evidence and exit gates in [`docs/BUILD_LEDGER.md`](docs/BUILD_LEDGER.md).
@@ -145,6 +186,6 @@ pnpm --filter @agentflow/contracts test
 
 ---
 
-## 7. License
+## 8. License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).

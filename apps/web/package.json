@@ -8,15 +8,12 @@
     "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint app/ --max-warnings=0 || true",
+    "lint": "eslint app/ --max-warnings=0",
     "test": "vitest run",
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
-    "@agentflow/auth": "workspace:*",
-    "@agentflow/config": "workspace:*",
     "@agentflow/contracts": "workspace:*",
-    "@agentflow/observability": "workspace:*",
     "@agentflow/ui": "workspace:*",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",

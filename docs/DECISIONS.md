@@ -28,6 +28,7 @@
 - [ADR-017: Public SDK Compatibility and Semantic Versioning](#adr-017-public-sdk-compatibility-and-semantic-versioning)
 - [ADR-018: Public Repository License and Contribution Policy](#adr-018-public-repository-license-and-contribution-policy)
 - [ADR-019: Architectural Dependency Boundaries and Browser Isolation](#adr-019-architectural-dependency-boundaries-and-browser-isolation)
+- [ADR-020: Local Infrastructure and Stage Sequencing](#adr-020-local-infrastructure-and-stage-sequencing)
 
 ---
 
@@ -378,3 +379,28 @@ Critical mitigation against credential leakage, bundle bloat, and unauthorized c
 ### Migration Path
 Any package or app requiring shared functionality must extract it into an existing or new `@agentflow/*` workspace package rather than coupling directly across application boundaries.
 
+## ADR-020: Local Infrastructure and Stage Sequencing
+
+### Context
+The approved application boundaries are five independent deployables (`apps/web`, `apps/api`, `apps/worker`, `apps/widget`, and `apps/docs`) plus the twelve existing shared packages. The current 40-stage product ledger names the PostgreSQL schema as Stage 03, while the current implementation prompt names reproducible local infrastructure as Stage 03 and PostgreSQL schema work as the next stage. Local development also needs PostgreSQL, Redis and S3-compatible storage without requiring external provider credentials.
+
+### Decision
+- Preserve all existing application and shared-package boundaries; local infrastructure is repository-level and is not an application.
+- Keep the original 40-stage product ledger as historical/product roadmap evidence and add a prompt-execution overlay for this delivery sequence. The next implementation step after this work is the PostgreSQL schema and Drizzle migration baseline.
+- Use a root Docker Compose project named `agentflow-local` with pinned PostgreSQL 16.4 Alpine, Redis 7.4.1 Alpine, and pinned `bitnamilegacy/minio:2024.10.29` / `bitnamilegacy/minio-client:2024.10.29` MinIO-compatible images. The dedicated bridge network, named volumes, health-based dependencies and loopback-only host ports remain explicit.
+- Initialize the configured MinIO bucket in a separate idempotent `minio-init` service. Applications use the host-compatible `OBJECT_STORAGE_ENDPOINT`; containers use the predictable `minio` service name.
+- Generate unique local-only database, session, encryption-reference and object-storage values only when `.env` does not exist. Never overwrite `.env`, print secret values, or commit it.
+- Validate server configuration at startup and expose a separate public browser configuration shape. Optional provider credentials are not required for local infrastructure.
+
+### Consequences
+- A new developer can start the three local dependencies with one command and repeat readiness checks without arbitrary sleeps.
+- Named volumes make normal shutdown non-destructive; reset requires an explicit confirmation flag and refuses staging/production environments.
+- Live health evidence still depends on a running Docker daemon; static Compose validation and readiness logic can be checked without one.
+
+### Security Impact
+- Database and storage ports bind to localhost only, and browser configuration cannot contain database URLs, session secrets, provider credentials or integration modules.
+- Setup and error messages redact credential-bearing values. Local generated credentials are not suitable for staging or production.
+- The upstream `minio/minio` and `minio/mc` repositories were unavailable to anonymous pulls during live verification. The pinned Bitnami legacy images preserve the MinIO API, console and `mc` initialization flow; replace them with an internally mirrored/pinned image if a maintained image source is required later.
+
+### Migration Path
+Stage 04 can add Drizzle migrations and schema readiness checks using `DATABASE_URL` without changing the Compose service names, volumes or environment contract.
