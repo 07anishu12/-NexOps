@@ -11,6 +11,24 @@ jobs:
     name: Lint, Typecheck, Test and Build
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_DB: agentflow_dev
+          POSTGRES_USER: agentflow
+          POSTGRES_PASSWORD: agentflow_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://agentflow:agentflow_password@127.0.0.1:5432/agentflow_dev
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,6 +52,9 @@ jobs:
 
       - name: Lint all workspaces
         run: pnpm lint
+
+      - name: Apply database migrations
+        run: pnpm --filter @agentflow/database db:migrate
 
       - name: Run unit & integration tests
         run: pnpm test
